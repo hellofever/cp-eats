@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
-import { categoryColor } from "@/lib/categories";
+import { tagColor } from "@/lib/tags";
 import { fetchRestaurants } from "@/lib/restaurants";
 import { useRestaurantUI } from "./AppShell";
 import type { Restaurant } from "@/lib/types";
@@ -16,13 +16,17 @@ export function MapView({ query }: { query: string }) {
   }, [refreshToken]);
 
   const q = query.trim().toLowerCase();
-  const filtered = restaurants.filter(
-    (r) =>
-      !q ||
+  const filtered = restaurants.filter((r) => {
+    if (!q) return true;
+    const tagNames = [...r.tags, ...r.areas, ...(r.city ? [r.city] : [])].map((t) =>
+      t.name.toLowerCase()
+    );
+    return (
       r.name.toLowerCase().includes(q) ||
       r.address.toLowerCase().includes(q) ||
-      r.category.toLowerCase().includes(q)
-  );
+      tagNames.some((n) => n.includes(q))
+    );
+  });
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
@@ -37,9 +41,9 @@ export function MapView({ query }: { query: string }) {
     <APIProvider apiKey={apiKey}>
       <Map
         className="flex-1"
-        defaultCenter={{ lat: 51.5074, lng: -0.1278 }}
+        defaultCenter={{ lat: -33.8688, lng: 151.2093 }}
         defaultZoom={12}
-        mapId="restaurant-map"
+        mapId="7a03f40461f9aed6ce58ae14"
         gestureHandling="greedy"
       >
         {filtered.map((r) => (
@@ -49,7 +53,7 @@ export function MapView({ query }: { query: string }) {
             onClick={() => openDetail(r)}
           >
             <Pin
-              background={categoryColor(r.category)}
+              background={tagColor(r.primaryTag)}
               borderColor="#262b22"
               glyphColor="#262b22"
             />

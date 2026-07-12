@@ -23,12 +23,29 @@ searching Google Places (autofills address/phone/hours) or entering it manually.
 
 ## Data model
 
-`supabase/migrations/0001_init.sql` — one `restaurants` table, RLS-gated to
-`auth.role() = 'authenticated'` (no per-row ownership; it's a shared list, not
-multi-tenant). Key fields: `category` (enum, mirrored in `lib/categories.ts` — that file
-is the single source of truth for category labels/colors, keep both in sync manually),
-`lat`/`lng`, `google_place_id` (unique — this is what powers duplicate detection when
-adding a restaurant that's already on the list).
+`supabase/migrations/0001_init.sql`, RLS-gated to `auth.role() = 'authenticated'`
+throughout (no per-row ownership; it's a shared list, not multi-tenant).
+
+**Superseded the original single `category` enum** with a unified `tags` table
+(`kind`: `'tag' | 'area' | 'city'`) plus a `restaurant_tags` many-to-many join:
+
+- **Tags** (Bakery, Cafe, Casual Eats, Restaurants, Dessert — seeded starting set) and
+  **Area** (Inner West, City, Inner City, East, West, South, North, Regional — seeded) are
+  both many-to-many with restaurants via `restaurant_tags`. Both are user-creatable from
+  the add/edit form, not a fixed list — the seed rows are just a starting point.
+- **City** (Sydney — seeded) uses the same table/join mechanism, but the app only ever
+  lets you pick one per restaurant (single-select in the UI; nothing stops multiple at the
+  DB level, it's just not offered).
+- `restaurants.primary_tag_id` is a separate FK (not part of the join) that drives the map
+  pin color — you designate one of a restaurant's tags as primary when saving. Tags get
+  their color auto-assigned from a rotating palette when created.
+- `google_place_id` (unique on `restaurants`) still powers duplicate detection when adding
+  a restaurant that's already on the list.
+
+App code is reworked to match (`lib/tags.ts` replaces the old `lib/categories.ts`;
+`RestaurantForm` now has a `TagPicker` for tags/area/city plus a primary-tag chooser).
+`npm run build` passes. Not yet tested end-to-end against live data — that happens once
+the migration is run and Google Maps/Places keys are in.
 
 ## Why Supabase, not Google Sheets
 
@@ -51,19 +68,23 @@ Three views behind one segmented control (Map / List / Sheet), one shared search
 (persisted via the `?q=` URL param so it survives navigation), one global "+ Add" button.
 Wireframe: https://claude.ai/code/artifact/b78f30b8-062e-4169-b6c4-0352a6ff8691
 
-- **Map** (`app/page.tsx`) — pins colored by category; tap opens the detail sheet.
-  Clustering (`@googlemaps/markerclusterer`, already installed) is deferred until the
-  list is actually large enough to need it — not wired up yet.
-- **List** (`app/list/page.tsx`) — name + neighborhood-level meta, browsing-oriented.
-- **Sheet** (`app/sheet/page.tsx`) — denser table (category/phone/price/notes columns).
-  Row click currently opens the same shared edit form as everywhere else, rather than
-  true inline cell editing — that's a deliberate simplification for this first pass, not
-  an oversight; true per-cell inline editing (desktop-only affordance) is a fast-follow.
-- **Add/Edit** (`components/AddRestaurantFlow.tsx`) — one shared flow and one shared
-  `RestaurantForm`, used for: search-to-autofill, "add manually," and editing an existing
-  entry. Category is auto-suggested from Places' `primaryType` but always stays editable —
-  never applied silently. Duplicate detection matches on `google_place_id` before the form
-  ever opens.
+- **Map** (`app/page.tsx`) — pins colored by `primary_tag_id`'s tag color; tap opens the
+  detail sheet. Clustering (`@googlemaps/markerclusterer`, already installed) is deferred
+  until the list is actually large enough to need it — not wired up yet.
+- **List** (`app/list/page.tsx`) — name + tags/area meta, browsing-oriented.
+- **Sheet** (`app/sheet/page.tsx`) — denser table (tags/area/city/phone/price/notes
+  columns). Row click currently opens the same shared edit form as everywhere else,
+  rather than true inline cell editing — deliberate simplification for this first pass;
+  true per-cell inline editing (desktop-only affordance) is a fast-follow.
+- **Add/Edit** (`components/AddRestaurantFlow.tsx` + `RestaurantForm` +
+  `TagPicker`) — one shared flow/form for search-to-autofill, "add manually," and editing.
+  `TagPicker` handles tags (multi), area (multi), and city (single) with inline
+  "create new" — all three are freeform lists seeded with a starting set, not fixed
+  enums. A restaurant's primary tag (colors its pin) is chosen among its selected tags,
+  auto-picked when there's only one. Places' `primaryType` only *prefills the tag search
+  box* with a suggested name (`suggestTagName` in `lib/tags.ts`) — it never selects or
+  creates a tag on its own. Duplicate detection matches on `google_place_id` before the
+  form ever opens.
 
 All three views + the add/edit sheet share one `RestaurantUIContext`
 (`components/AppShell.tsx`), which also owns the auth gate and the refresh-after-save

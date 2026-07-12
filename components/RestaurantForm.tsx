@@ -1,42 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import { CATEGORIES } from "@/lib/categories";
+import { useEffect, useState } from "react";
+import { TagPicker } from "./TagPicker";
+import { fetchTags, type Tag } from "@/lib/tags";
 import type { RestaurantInput } from "@/lib/types";
 
 export function RestaurantForm({
   initial,
   onSubmit,
   submitLabel = "Save restaurant",
+  suggestedTagName,
 }: {
   initial: Partial<RestaurantInput>;
   onSubmit: (values: RestaurantInput) => Promise<void>;
   submitLabel?: string;
+  suggestedTagName?: string | null;
 }) {
-  const [values, setValues] = useState<Partial<RestaurantInput>>(initial);
+  const [name, setName] = useState(initial.name ?? "");
+  const [tagIds, setTagIds] = useState<string[]>(initial.tagIds ?? []);
+  const [areaIds, setAreaIds] = useState<string[]>(initial.areaIds ?? []);
+  const [cityIds, setCityIds] = useState<string[]>(initial.cityId ? [initial.cityId] : []);
+  const [primaryTagId, setPrimaryTagId] = useState<string | null>(initial.primary_tag_id ?? null);
+  const [address, setAddress] = useState(initial.address ?? "");
+  const [lat, setLat] = useState<number | "">(initial.lat ?? "");
+  const [lng, setLng] = useState<number | "">(initial.lng ?? "");
+  const [phone, setPhone] = useState(initial.phone ?? "");
+  const [website, setWebsite] = useState(initial.website ?? "");
+  const [priceLevel, setPriceLevel] = useState<number | null>(initial.price_level ?? null);
+  const [notes, setNotes] = useState(initial.notes ?? "");
+  const [tagOptions, setTagOptions] = useState<Tag[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function set<K extends keyof RestaurantInput>(key: K, value: RestaurantInput[K]) {
-    setValues((v) => ({ ...v, [key]: value }));
-  }
+  useEffect(() => {
+    fetchTags("tag").then(setTagOptions).catch(console.error);
+  }, []);
+
+  // Keep primaryTagId valid as the tag selection changes: auto-pick when there's
+  // exactly one, clear/reassign if the current primary was removed.
+  useEffect(() => {
+    if (tagIds.length === 0) {
+      setPrimaryTagId(null);
+    } else if (tagIds.length === 1) {
+      setPrimaryTagId(tagIds[0]);
+    } else if (primaryTagId && !tagIds.includes(primaryTagId)) {
+      setPrimaryTagId(tagIds[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagIds]);
+
+  const inputClass =
+    "rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5";
+  const selectedTagOptions = tagOptions.filter((t) => tagIds.includes(t.id));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (
-      !values.name ||
-      !values.category ||
-      values.lat == null ||
-      values.lng == null ||
-      !values.address
-    ) {
-      setError("Name, category, address and location are required.");
+    if (!name || !address || lat === "" || lng === "") {
+      setError("Name, address and location are required.");
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      await onSubmit(values as RestaurantInput);
+      await onSubmit({
+        name,
+        primary_tag_id: primaryTagId,
+        lat: Number(lat),
+        lng: Number(lng),
+        address,
+        phone: phone || null,
+        website: website || null,
+        price_level: priceLevel,
+        opening_hours: initial.opening_hours ?? null,
+        google_place_id: initial.google_place_id ?? null,
+        notes: notes || null,
+        photo_url: initial.photo_url ?? null,
+        tagIds,
+        areaIds,
+        cityId: cityIds[0] ?? null,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -44,46 +86,54 @@ export function RestaurantForm({
     }
   }
 
-  const inputClass =
-    "rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5";
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 pr-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pr-6">
       <label className="flex flex-col gap-1 text-sm">
         Name
-        <input
-          required
-          value={values.name ?? ""}
-          onChange={(e) => set("name", e.target.value)}
-          className={inputClass}
-        />
+        <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        Category
-        <select
-          required
-          value={values.category ?? ""}
-          onChange={(e) => set("category", e.target.value as RestaurantInput["category"])}
-          className={inputClass}
-        >
-          <option value="" disabled>
-            Choose a category
-          </option>
-          {CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <TagPicker
+        kind="tag"
+        label="Tags"
+        multiple
+        selectedIds={tagIds}
+        onChange={setTagIds}
+        initialQuery={suggestedTagName ?? undefined}
+      />
+
+      {selectedTagOptions.length > 1 && (
+        <div className="flex flex-col gap-1.5 text-sm">
+          <span>Primary tag (colors the map pin)</span>
+          <div className="flex flex-wrap gap-1.5">
+            {selectedTagOptions.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setPrimaryTagId(t.id)}
+                className="rounded-full border px-2.5 py-1 text-xs"
+                style={
+                  primaryTagId === t.id
+                    ? { background: t.color ?? undefined, borderColor: t.color ?? undefined, color: "white" }
+                    : { borderColor: t.color ?? undefined, color: t.color ?? undefined }
+                }
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <TagPicker kind="area" label="Area" multiple selectedIds={areaIds} onChange={setAreaIds} />
+      <TagPicker kind="city" label="City" multiple={false} selectedIds={cityIds} onChange={setCityIds} />
 
       <label className="flex flex-col gap-1 text-sm">
         Address
         <input
           required
-          value={values.address ?? ""}
-          onChange={(e) => set("address", e.target.value)}
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
           className={inputClass}
         />
       </label>
@@ -95,8 +145,8 @@ export function RestaurantForm({
             required
             type="number"
             step="any"
-            value={values.lat ?? ""}
-            onChange={(e) => set("lat", parseFloat(e.target.value))}
+            value={lat}
+            onChange={(e) => setLat(e.target.value === "" ? "" : parseFloat(e.target.value))}
             className={inputClass}
           />
         </label>
@@ -106,8 +156,8 @@ export function RestaurantForm({
             required
             type="number"
             step="any"
-            value={values.lng ?? ""}
-            onChange={(e) => set("lng", parseFloat(e.target.value))}
+            value={lng}
+            onChange={(e) => setLng(e.target.value === "" ? "" : parseFloat(e.target.value))}
             className={inputClass}
           />
         </label>
@@ -115,27 +165,19 @@ export function RestaurantForm({
 
       <label className="flex flex-col gap-1 text-sm">
         Phone
-        <input
-          value={values.phone ?? ""}
-          onChange={(e) => set("phone", e.target.value)}
-          className={inputClass}
-        />
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
         Website
-        <input
-          value={values.website ?? ""}
-          onChange={(e) => set("website", e.target.value)}
-          className={inputClass}
-        />
+        <input value={website} onChange={(e) => setWebsite(e.target.value)} className={inputClass} />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
         Price level
         <select
-          value={values.price_level ?? ""}
-          onChange={(e) => set("price_level", e.target.value ? Number(e.target.value) : null)}
+          value={priceLevel ?? ""}
+          onChange={(e) => setPriceLevel(e.target.value ? Number(e.target.value) : null)}
           className={inputClass}
         >
           <option value="">Not set</option>
@@ -149,8 +191,8 @@ export function RestaurantForm({
       <label className="flex flex-col gap-1 text-sm">
         Notes
         <textarea
-          value={values.notes ?? ""}
-          onChange={(e) => set("notes", e.target.value)}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           rows={3}
           className={inputClass}
         />

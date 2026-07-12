@@ -1,6 +1,6 @@
 "use client";
 
-import { categoryColor, categoryLabel } from "@/lib/categories";
+import { tagColor } from "@/lib/tags";
 import type { Restaurant } from "@/lib/types";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -30,18 +30,40 @@ export function RestaurantDetailView({
   onEdit: () => void;
 }) {
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.lat},${restaurant.lng}`;
-  const color = categoryColor(restaurant.category);
 
   return (
     <div className="flex flex-col gap-3 pr-6">
       <h2 className="text-lg font-semibold">{restaurant.name}</h2>
-      <span
-        className="w-fit rounded-full border px-2.5 py-1 text-xs font-medium"
-        style={{ borderColor: color, color }}
-      >
-        {categoryLabel(restaurant.category)}
-        {restaurant.price_level ? ` · ${"$".repeat(restaurant.price_level)}` : ""}
-      </span>
+
+      <div className="flex flex-wrap gap-1.5">
+        {restaurant.tags.map((t) => (
+          <span
+            key={t.id}
+            className="rounded-full border px-2.5 py-1 text-xs font-medium"
+            style={{ borderColor: tagColor(t), color: tagColor(t) }}
+          >
+            {t.name}
+            {t.id === restaurant.primary_tag_id ? " ★" : ""}
+          </span>
+        ))}
+        {restaurant.areas.map((a) => (
+          <span
+            key={a.id}
+            className="rounded-full border border-black/15 px-2.5 py-1 text-xs text-black/60 dark:border-white/15 dark:text-white/60"
+          >
+            {a.name}
+          </span>
+        ))}
+        {restaurant.city && (
+          <span className="rounded-full border border-black/15 px-2.5 py-1 text-xs text-black/60 dark:border-white/15 dark:text-white/60">
+            {restaurant.city.name}
+          </span>
+        )}
+      </div>
+
+      {restaurant.price_level && (
+        <p className="text-sm text-black/70 dark:text-white/70">{"$".repeat(restaurant.price_level)}</p>
+      )}
       <p className="text-sm text-black/70 dark:text-white/70">{restaurant.address}</p>
       <p className="text-sm text-black/70 dark:text-white/70">{formatHours(restaurant)}</p>
       {restaurant.phone && (

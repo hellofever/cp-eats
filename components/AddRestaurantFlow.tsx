@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RestaurantForm } from "./RestaurantForm";
-import { suggestCategory } from "@/lib/categories";
+import { suggestTagName } from "@/lib/tags";
 import { findByPlaceId, insertRestaurant, updateRestaurant } from "@/lib/restaurants";
 import type { Restaurant, RestaurantInput } from "@/lib/types";
 
@@ -10,6 +10,26 @@ interface SearchResult {
   placeId: string;
   name: string;
   address: string;
+}
+
+function toFormInitial(restaurant: Restaurant): Partial<RestaurantInput> {
+  return {
+    name: restaurant.name,
+    address: restaurant.address,
+    lat: restaurant.lat,
+    lng: restaurant.lng,
+    phone: restaurant.phone,
+    website: restaurant.website,
+    price_level: restaurant.price_level,
+    opening_hours: restaurant.opening_hours,
+    google_place_id: restaurant.google_place_id,
+    notes: restaurant.notes,
+    photo_url: restaurant.photo_url,
+    primary_tag_id: restaurant.primary_tag_id,
+    tagIds: restaurant.tags.map((t) => t.id),
+    areaIds: restaurant.areas.map((t) => t.id),
+    cityId: restaurant.city?.id ?? null,
+  };
 }
 
 export function AddRestaurantFlow({
@@ -24,7 +44,10 @@ export function AddRestaurantFlow({
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formInitial, setFormInitial] = useState<Partial<RestaurantInput>>(editing ?? {});
+  const [formInitial, setFormInitial] = useState<Partial<RestaurantInput>>(
+    editing ? toFormInitial(editing) : {}
+  );
+  const [suggestedTagName, setSuggestedTagName] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<Restaurant | null>(null);
 
   async function runSearch(e: React.FormEvent) {
@@ -73,8 +96,11 @@ export function AddRestaurantFlow({
         price_level: details.priceLevel,
         opening_hours: details.openingHours,
         google_place_id: details.placeId,
-        category: suggestCategory(details.primaryType),
+        tagIds: [],
+        areaIds: [],
+        cityId: null,
       });
+      setSuggestedTagName(suggestTagName(details.primaryType));
       setStep("form");
     } finally {
       setLoading(false);
@@ -83,6 +109,7 @@ export function AddRestaurantFlow({
 
   function addManually() {
     setFormInitial({});
+    setSuggestedTagName(null);
     setStep("form");
   }
 
@@ -104,7 +131,7 @@ export function AddRestaurantFlow({
         </p>
         <button
           onClick={() => {
-            setFormInitial(duplicate);
+            setFormInitial(toFormInitial(duplicate));
             setDuplicate(null);
             setStep("form");
           }}
@@ -122,7 +149,11 @@ export function AddRestaurantFlow({
         <h2 className="mb-3 pr-6 text-lg font-semibold">
           {editing ? "Edit restaurant" : "Add restaurant"}
         </h2>
-        <RestaurantForm initial={formInitial} onSubmit={handleSave} />
+        <RestaurantForm
+          initial={formInitial}
+          onSubmit={handleSave}
+          suggestedTagName={suggestedTagName}
+        />
       </>
     );
   }

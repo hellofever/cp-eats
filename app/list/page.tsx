@@ -3,9 +3,21 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchRestaurants } from "@/lib/restaurants";
-import { categoryColor, categoryLabel } from "@/lib/categories";
+import { tagColor } from "@/lib/tags";
 import { useRestaurantUI } from "@/components/AppShell";
 import type { Restaurant } from "@/lib/types";
+
+function matches(r: Restaurant, q: string): boolean {
+  if (!q) return true;
+  const tagNames = [...r.tags, ...r.areas, ...(r.city ? [r.city] : [])].map((t) =>
+    t.name.toLowerCase()
+  );
+  return (
+    r.name.toLowerCase().includes(q) ||
+    r.address.toLowerCase().includes(q) ||
+    tagNames.some((n) => n.includes(q))
+  );
+}
 
 export default function ListPage() {
   const searchParams = useSearchParams();
@@ -18,13 +30,7 @@ export default function ListPage() {
   }, [refreshToken]);
 
   const q = query.trim().toLowerCase();
-  const filtered = restaurants.filter(
-    (r) =>
-      !q ||
-      r.name.toLowerCase().includes(q) ||
-      r.address.toLowerCase().includes(q) ||
-      r.category.toLowerCase().includes(q)
-  );
+  const filtered = restaurants.filter((r) => matches(r, q));
 
   return (
     <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
@@ -36,12 +42,13 @@ export default function ListPage() {
         >
           <span
             className="h-2 w-2 flex-none rounded-full"
-            style={{ background: categoryColor(r.category) }}
+            style={{ background: tagColor(r.primaryTag) }}
           />
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium">{r.name}</span>
             <span className="block text-xs text-black/50 dark:text-white/50">
-              {categoryLabel(r.category)} · {r.address}
+              {[...r.tags.map((t) => t.name), ...r.areas.map((a) => a.name)].join(" · ") ||
+                r.address}
             </span>
           </span>
           <span className="text-black/40">›</span>
