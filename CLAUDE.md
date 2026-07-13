@@ -21,6 +21,10 @@ manually.
   so the Places key never ships to the client.
 - **Auth:** Supabase email/password, tied to the owner's personal email. No magic link,
   no separate login route — `AppShell` shows `LoginForm` inline when there's no session.
+- **Icons:** `@phosphor-icons/react` — the icon library for the whole app (e.g. the
+  Sheet view's favourite star, add/delete/warning icons). Import icons by name (e.g.
+  `import { Star, Trash } from "@phosphor-icons/react"`) and set `weight` (`"regular"` |
+  `"fill"` | `"bold"` etc.) rather than swapping components for filled/outline states.
 
 ## Project Structure
 
@@ -29,20 +33,27 @@ manually.
 - `components/` — `AppShell` (auth gate + shared `RestaurantUIContext`), `MapView`,
   `AddRestaurantFlow` + `RestaurantForm` + `TagPicker` (shared add/edit flow),
   `RestaurantDetailView`, `LoginForm`, `BottomSheet`, `Header`.
-- `lib/` — `supabase.ts` (client), `restaurants.ts` (fetch/insert/update, tag-join
-  normalization), `tags.ts` (tags/area/city taxonomy + palette), `types.ts`.
-- `supabase/migrations/` — one file so far, `0001_init.sql`. This *is* the schema source
-  of truth — see "What to avoid" for the workflow around it.
+- `components/sheet/` — inline-editable cell components used only by the Sheet view
+  (`EditableTextCell`, `PriceCell`, `AddressCell`, `FavStar`).
+- `components/ListFilters.tsx` — the List view's tag/area/favourites filter row.
+- `lib/` — `supabase.ts` (client), `restaurants.ts` (fetch/insert/update/delete, tag-join
+  normalization), `tags.ts` (tags/area/city taxonomy + palette), `types.ts`, `sort.ts`
+  (List sort + area-grouping), `sheetSort.ts` (Sheet column sort/comparators),
+  `geocode.ts` (address → coordinates, reuses the Places search route).
+- `supabase/migrations/` — `0001_init.sql` (schema + seed), `0002_favourites.sql`
+  (`is_favourite` column), `0003_rename_restaurants_tag.sql` (data fix). This *is* the
+  schema source of truth — see "What to avoid" for the workflow around it.
 
 ## Data model
 
-`supabase/migrations/0001_init.sql`, RLS-gated to `auth.role() = 'authenticated'`
-throughout (no per-row ownership; it's a shared list, not multi-tenant).
+Defined across `supabase/migrations/` (see Project Structure for what each file adds),
+RLS-gated to `auth.role() = 'authenticated'` throughout (no per-row ownership; it's a
+shared list, not multi-tenant).
 
 A unified `tags` table (`kind`: `'tag' | 'area' | 'city'`) plus a `restaurant_tags`
 many-to-many join, superseding an earlier single `category` enum:
 
-- **Tags** (Bakery, Cafe, Casual Eats, Restaurants, Dessert — seeded starting set) and
+- **Tags** (Bakery, Cafe, Casual Eats, Restaurant, Dessert — seeded starting set) and
   **Area** (Inner West, City, Inner City, East, West, South, North, Regional — seeded) are
   both many-to-many with restaurants via `restaurant_tags`. Both are user-creatable from
   the add/edit form, not a fixed list — the seed rows are just a starting point.
@@ -54,6 +65,10 @@ many-to-many join, superseding an earlier single `category` enum:
   their color auto-assigned from a rotating palette when created.
 - `google_place_id` (unique on `restaurants`) powers duplicate detection when adding a
   restaurant that's already on the list.
+- `restaurants.is_favourite` (added in `0002_favourites.sql`) is a plain boolean, set
+  independently of the main edit form via a dedicated toggle (`lib/restaurants.ts`
+  `setFavourite`) — saving the form never touches it, so it can't be clobbered by an
+  unrelated edit. Surfaced as a star in the detail view, List, and Sheet.
 
 ## Why Supabase, not Google Sheets
 
@@ -68,6 +83,8 @@ Google Maps Platform's Essentials tier (Maps JS SDK, Places Autocomplete/Details
 up to ~10,000 calls/API/month. At <5 users this should stay $0/month. Still requires a
 billing account on file — set a small budget alert and restrict both API keys (HTTP
 referrer for the Maps key, API restriction only for the server-only Places key).
+Sheet's address auto-geocode (see UI structure, below) reuses this same Places search
+call rather than adding a separate Geocoding API — no new cost line to track.
 
 ## UI structure
 
@@ -78,11 +95,48 @@ Wireframe: https://claude.ai/code/artifact/b78f30b8-062e-4169-b6c4-0352a6ff8691
 - **Map** (`app/page.tsx`) — pins colored by `primary_tag_id`'s tag color; tap opens the
   detail sheet. Clustering (`@googlemaps/markerclusterer`, already installed) is deferred
   until the list is actually large enough to need it — not wired up yet.
-- **List** (`app/list/page.tsx`) — name + tags/area meta, browsing-oriented.
-- **Sheet** (`app/sheet/page.tsx`) — denser table (tags/area/city/phone/price/notes
-  columns). Row click currently opens the same shared edit form as everywhere else,
-  rather than true inline cell editing — deliberate simplification for this first pass;
-  true per-cell inline editing (desktop-only affordance) is a fast-follow.
+- **List** (`app/list/page.tsx`) — browsing-oriented, name + tags/area/website/notes meta
+  line (favourited rows get a leading ★). List items (including area sub-headings) are
+  capped at `max-w-[800px]` and centered; the filter/sort row above them stays full-width.
+  - *Filter* (`components/ListFilters.tsx`) — a collapsible row: tags/area as click-to-add
+    pills (OR within a facet, AND across facets), plus a favourites-only toggle. State
+    persists via `?tags=`/`?areas=`/`?fav=`, same pattern as the `?q=` search param.
+  - *Sort* (`lib/sort.ts`) — Name, Recently added, Price, Favourites first, or Area. Area
+    is a special case: instead of reordering the flat list, it renders sectioned
+    sub-headings per area (alphabetical, a restaurant with multiple areas is duplicated
+    under each one, a trailing "No area" group catches the rest).
+  - Loading skeleton while fetching; a distinct empty state ("There are no places added" +
+    an Add CTA) versus "no matches" when a search/filter just narrows the list to zero.
+- **Sheet** (`app/sheet/page.tsx`) — edit-focused spreadsheet view, not a read-only table.
+  - *Cell editing* — every column except City (read-only, matches it being hidden in the
+    main form) is inline-editable: click a cell to edit text/price directly, click
+    Tags/Area to open a pill-picker popover (`TagPicker` in a `BottomSheet`), click the
+    Fav star to toggle instantly.
+  - *Address* is inline-editable too, but changing it silently re-resolves coordinates via
+    the same `/api/places/search` endpoint used for "search to add" (`lib/geocode.ts`)
+    rather than a separate Geocoding API call — a row whose address couldn't be
+    confidently resolved keeps its old coordinates and shows a warning icon linking to the
+    full edit modal.
+  - *Selection/delete* — checkboxes + a "Delete" action bar, behind a confirm dialog.
+  - *Right-click a row* for a small context menu: "Go to place" (calls `openDetail` then
+    navigates to `/?place=<id>` — the detail modal opens because `AppShell` lives in the
+    root layout and its `RestaurantUIContext` state survives the route change; the
+    `place` param separately tells `MapView` to pan/zoom there, since the map can't just
+    use a smarter default center/zoom — the restaurant list it matches against loads
+    asynchronously, after the map has already mounted) or "Delete" (selects just that
+    row and reuses the same confirm-dialog flow as the checkbox-driven bulk delete).
+  - *Empty trailing row* — its Name cell + "+" button launches the normal search/manual
+    Add flow with the typed text prefilled as the search query (`openAddInline` in
+    `AppShell` — saving from here does *not* pop the detail modal the way the header's
+    "+ Add" does, it just drops the row into place). The row's other cells aren't
+    independently editable pre-save (see Known simplifications).
+  - *Paste* — tab-separated values (e.g. copied from Excel/Sheets), while any text-input
+    cell is focused, cascade across the following cells/rows from that point. New rows
+    can't be spawned this way (even with auto-geocoding, a row still needs a Name to exist
+    first via "+"). Tags/Area paste text is parsed as comma-separated names and
+    auto-creates any that don't already match.
+  - *Sort* (`lib/sheetSort.ts`, click a column header) is independent of all of the above
+    and of List's own sort — separate `?sheetSort=`/`?sheetDir=` params.
 - **Add/Edit** (`components/AddRestaurantFlow.tsx` + `RestaurantForm` +
   `TagPicker`) — one shared flow/form for search-to-autofill, "add manually," and editing.
   `TagPicker` handles tags (multi), area (multi), and city (single) with inline
@@ -102,7 +156,20 @@ signal each page's data fetch listens for.
 - No structured opening-hours editor yet — Places autofill populates it, manual entry
   leaves it null. A proper per-day hours editor is a fast-follow.
 - No image handling for `photo_url` yet (schema column exists, unused in UI).
-- Sheet view's inline cell editing is deferred (see above).
+- A paste can't *originate* on the Fav/Tags/Area cells (they're not real text inputs, so
+  there's nothing for the browser to fire a paste event on) — only text-input columns
+  (Name/Phone/Address/Price/Notes) can be the anchor, though a wide-enough paste from one
+  of those still reaches Fav/Tags/Area as a target. Sheet's "needs review" flag for a
+  failed address geocode is in-memory only, not persisted — it's meant to catch a bad
+  paste in the moment, not survive a reload.
+- Sheet's empty trailing row only has its Name cell independently editable pre-save
+  (plus the "+" button) — Tags/Phone/Price/Notes/Fav aren't individually draftable before
+  a restaurant exists there. This was a unilateral scope call made during implementation,
+  not an explicitly confirmed decision — flag if you actually want every cell in that row
+  draftable ahead of save.
+- Sheet's column-header sort indicator is plain "▲"/"▼" text, not a Phosphor icon like the
+  rest of the app's icons — an inconsistency noticed after the Phosphor migration, not yet
+  fixed.
 - Auth check is client-side only (no `@supabase/ssr` middleware/proxy setup) — acceptable
   because the real security boundary is Postgres RLS, not the client gate. Worth adding
   proper SSR session handling later for a cleaner logged-out experience.
@@ -158,8 +225,8 @@ signal each page's data fetch listens for.
 ## Setup checklist
 
 1. Copy `.env.local.example` to `.env.local` and fill in Supabase + Google keys.
-2. Run `supabase/migrations/0001_init.sql` against the Supabase project (SQL editor or
-   Supabase CLI).
+2. Run every file in `supabase/migrations/` against the Supabase project, in order
+   (SQL editor or Supabase CLI).
 3. In Google Cloud Console: enable Maps JavaScript API + Places API (New), create a Map ID
    for Advanced Markers, restrict the two keys as described in `.env.local.example`.
 4. Sign up once from the in-app login form (email/password) — that's the only account
