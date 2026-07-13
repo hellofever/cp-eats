@@ -14,12 +14,17 @@ type SheetState =
   | { kind: "detail"; restaurant: Restaurant }
   | { kind: "add" }
   | { kind: "edit"; restaurant: Restaurant }
+  | { kind: "add-inline"; initialQuery: string; onSaved: (restaurant: Restaurant) => void }
   | null;
 
 interface RestaurantUIContextValue {
   openDetail: (restaurant: Restaurant) => void;
   openEdit: (restaurant: Restaurant) => void;
   openAdd: () => void;
+  // Used by the Sheet view's empty-row "+" button: runs the normal search/manual Add
+  // flow, but the caller decides what happens on save instead of always opening the
+  // detail view -- the Sheet just drops the new row into place, no modal popup.
+  openAddInline: (initialQuery: string, onSaved: (restaurant: Restaurant) => void) => void;
   // bump after any create/update so Map/List/Sheet pages know to refetch
   refreshToken: number;
   refresh: () => void;
@@ -69,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         openDetail: (r) => setSheet({ kind: "detail", restaurant: r }),
         openEdit: (r) => setSheet({ kind: "edit", restaurant: r }),
         openAdd: () => setSheet({ kind: "add" }),
+        openAddInline: (initialQuery, onSaved) => setSheet({ kind: "add-inline", initialQuery, onSaved }),
         refreshToken,
         refresh: () => setRefreshToken((n) => n + 1),
       }}
@@ -87,6 +93,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {sheet?.kind === "add" && <AddRestaurantFlow onSaved={handleSaved} />}
         {sheet?.kind === "edit" && (
           <AddRestaurantFlow editing={sheet.restaurant} onSaved={handleSaved} />
+        )}
+        {sheet?.kind === "add-inline" && (
+          <AddRestaurantFlow
+            initialQuery={sheet.initialQuery}
+            onSaved={(r) => {
+              setSheet(null);
+              sheet.onSaved(r);
+            }}
+          />
         )}
       </BottomSheet>
     </RestaurantUIContext.Provider>

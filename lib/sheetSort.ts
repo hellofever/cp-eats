@@ -43,6 +43,20 @@ function comparePriceLevel(a: number | null, b: number | null, dir: SortDirectio
   return (a - b) * (dir === "asc" ? 1 : -1);
 }
 
+export function formatPriceLevel(level: number | null): string {
+  return level ? "$".repeat(level) : "";
+}
+
+// Accepts "$".."$$$$" or a plain "1".."4"; anything else (including empty) is "not set".
+// Shared between manual cell edits and pasted values so both parse identically.
+export function parsePriceLevel(raw: string): number | null {
+  const value = raw.trim();
+  if (/^\${1,4}$/.test(value)) return value.length;
+  const num = Number(value);
+  if (Number.isInteger(num) && num >= 1 && num <= 4) return num;
+  return null;
+}
+
 // Tags/Area sort by the exact same joined string shown in the cell -- "what you see is
 // what it sorts by", rather than a different ordering the user can't see reflected.
 export function compareRestaurants(

@@ -47,7 +47,12 @@ export async function fetchRestaurantById(id: string): Promise<Restaurant> {
   return normalize(data as unknown as RawRestaurantRow);
 }
 
-async function syncRestaurantTags(restaurantId: string, tagIds: string[]) {
+// Full replace of a restaurant's tag/area/city join rows. Callers must pass the
+// COMPLETE set of ids (tags+areas+city combined) -- there's one join table for all
+// three kinds, so a partial list here would silently drop the other kinds. When only
+// one kind is being edited (e.g. the Sheet's Tags cell), combine the new ids for that
+// kind with the restaurant's existing ids for the other two before calling this.
+export async function updateRestaurantTags(restaurantId: string, tagIds: string[]): Promise<void> {
   const { error: deleteError } = await supabase
     .from("restaurant_tags")
     .delete()
@@ -72,7 +77,7 @@ export async function insertRestaurant(input: RestaurantInput): Promise<Restaura
   const { data, error } = await supabase.from("restaurants").insert(scalar).select().single();
   if (error) throw error;
 
-  await syncRestaurantTags(data.id, allTagIds);
+  await updateRestaurantTags(data.id, allTagIds);
   return fetchRestaurantById(data.id);
 }
 
@@ -81,12 +86,32 @@ export async function updateRestaurant(id: string, input: RestaurantInput): Prom
   const { error } = await supabase.from("restaurants").update(scalar).eq("id", id);
   if (error) throw error;
 
-  await syncRestaurantTags(id, allTagIds);
+  await updateRestaurantTags(id, allTagIds);
   return fetchRestaurantById(id);
 }
 
 export async function setFavourite(id: string, value: boolean): Promise<void> {
   const { error } = await supabase.from("restaurants").update({ is_favourite: value }).eq("id", id);
+  if (error) throw error;
+}
+
+// Direct scalar-field patch for inline Sheet-cell edits -- skips the tag-sync dance
+// entirely since tags/areas/city aren't scalar columns.
+export async function patchRestaurant(
+  id: string,
+  fields: Partial<
+    Pick<
+      RestaurantInput,
+      "name" | "address" | "lat" | "lng" | "phone" | "website" | "price_level" | "notes"
+    >
+  >
+): Promise<void> {
+  const { error } = await supabase.from("restaurants").update(fields).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteRestaurants(ids: string[]): Promise<void> {
+  const { error } = await supabase.from("restaurants").delete().in("id", ids);
   if (error) throw error;
 }
 

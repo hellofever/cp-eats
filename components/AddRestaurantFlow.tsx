@@ -35,12 +35,14 @@ function toFormInitial(restaurant: Restaurant): Partial<RestaurantInput> {
 export function AddRestaurantFlow({
   editing,
   onSaved,
+  initialQuery,
 }: {
   editing?: Restaurant;
   onSaved: (restaurant: Restaurant) => void;
+  initialQuery?: string;
 }) {
   const [step, setStep] = useState<"search" | "results" | "form">(editing ? "form" : "search");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
