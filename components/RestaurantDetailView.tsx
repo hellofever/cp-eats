@@ -4,25 +4,42 @@ import { useState } from "react";
 import { tagColor } from "@/lib/tags";
 import { setFavourite } from "@/lib/restaurants";
 import { useRestaurantUI } from "./AppShell";
-import type { Restaurant } from "@/lib/types";
+import type { OpeningPeriod, Restaurant } from "@/lib/types";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Indexed by Google's day-of-week convention (0 = Sunday), but displayed Monday-first.
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-function formatHours(restaurant: Restaurant): string {
-  if (!restaurant.opening_hours || restaurant.opening_hours.length === 0) {
-    return "Hours not set";
-  }
-  return restaurant.opening_hours
-    .map((p) => {
-      const open = `${pad(p.open.hour)}:${pad(p.open.minute)}`;
-      const close = p.close ? `${pad(p.close.hour)}:${pad(p.close.minute)}` : "?";
-      return `${DAYS[p.open.day]} ${open}–${close}`;
-    })
-    .join(", ");
+function formatClock(hour: number, minute: number): { display: string; meridiem: "am" | "pm" } {
+  const meridiem = hour >= 12 ? "pm" : "am";
+  const h12 = hour % 12 || 12;
+  return { display: minute === 0 ? `${h12}` : `${h12}:${pad(minute)}`, meridiem };
+}
+
+// Drops a redundant meridiem when both ends of the range fall on the same side of
+// noon/midnight (e.g. "5–10 pm"), and only shows it twice when they differ (e.g.
+// "11 am–2 pm").
+function formatRange(period: OpeningPeriod): string {
+  const open = formatClock(period.open.hour, period.open.minute);
+  if (!period.close) return `${open.display} ${open.meridiem}`;
+  const close = formatClock(period.close.hour, period.close.minute);
+  return open.meridiem === close.meridiem
+    ? `${open.display}–${close.display} ${close.meridiem}`
+    : `${open.display} ${open.meridiem}–${close.display} ${close.meridiem}`;
+}
+
+// One block per day, Monday first -- a day with no period at all (Places omits closed
+// days entirely rather than marking them) has an empty ranges array, rendered as
+// "Closed"; a day with multiple periods (e.g. split lunch/dinner) gets one line each.
+function hoursByDay(periods: OpeningPeriod[]): { day: string; ranges: string[] }[] {
+  return DISPLAY_ORDER.map((dayIndex) => ({
+    day: DAY_NAMES[dayIndex],
+    ranges: periods.filter((p) => p.open.day === dayIndex).map(formatRange),
+  }));
 }
 
 export function RestaurantDetailView({
@@ -99,7 +116,27 @@ export function RestaurantDetailView({
         <p className="text-sm text-black/70 dark:text-white/70">{"$".repeat(restaurant.price_level)}</p>
       )}
       <p className="text-sm text-black/70 dark:text-white/70">{restaurant.address}</p>
-      <p className="text-sm text-black/70 dark:text-white/70">{formatHours(restaurant)}</p>
+
+      {restaurant.opening_hours && restaurant.opening_hours.length > 0 ? (
+        <div className="flex flex-col gap-0.5 text-sm">
+          {hoursByDay(restaurant.opening_hours).map(({ day, ranges }) => (
+            <div key={day} className="flex justify-between gap-4">
+              <span>{day}</span>
+              <span
+                className={
+                  ranges.length > 0
+                    ? "text-black/70 dark:text-white/70"
+                    : "text-black/40 dark:text-white/40"
+                }
+              >
+                {ranges.length > 0 ? ranges.join(", ") : "Closed"}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-black/70 dark:text-white/70">Hours not set</p>
+      )}
       {restaurant.phone && (
         <p className="text-sm text-black/70 dark:text-white/70">{restaurant.phone}</p>
       )}
