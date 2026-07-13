@@ -92,7 +92,7 @@ insert into tags (kind, name, color) values
   ('tag', 'Bakery',      '#3d6e63'),
   ('tag', 'Cafe',        '#b6892c'),
   ('tag', 'Casual Eats', '#7a4a6b'),
-  ('tag', 'Restaurants', '#4c5f8a'),
+  ('tag', 'Restaurant',  '#4c5f8a'),
   ('tag', 'Dessert',     '#9c3f34');
 
 insert into tags (kind, name) values

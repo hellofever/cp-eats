@@ -68,8 +68,8 @@ const PLACE_TYPE_TO_TAG_NAME: Record<string, string> = {
   coffee_shop: "Cafe",
   dessert_shop: "Dessert",
   ice_cream_shop: "Dessert",
-  restaurant: "Restaurants",
-  fine_dining_restaurant: "Restaurants",
+  restaurant: "Restaurant",
+  fine_dining_restaurant: "Restaurant",
 };
 
 export function suggestTagName(primaryType: string | null): string | null {
