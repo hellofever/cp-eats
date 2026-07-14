@@ -69,7 +69,7 @@ export function MapView({
         className="flex-1"
         defaultCenter={{ lat: -33.8688, lng: 151.2093 }}
         defaultZoom={12}
-        mapId="7a03f40461f9aed6ce58ae14"
+        mapId="7a03f40461f9aed667a8cf4f"
         gestureHandling="greedy"
       >
         <FocusOnPlace restaurant={focusedRestaurant} />
