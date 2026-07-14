@@ -4,8 +4,8 @@ import type { Restaurant, RestaurantInput } from "./types";
 
 const RESTAURANT_SELECT = `
   *,
-  primary_tag:tags!restaurants_primary_tag_id_fkey(id, kind, name, color),
-  restaurant_tags(tag:tags(id, kind, name, color))
+  primary_tag:tags!restaurants_primary_tag_id_fkey(id, kind, name, color, icon),
+  restaurant_tags(tag:tags(id, kind, name, color, icon))
 `;
 
 interface RawRestaurantRow {

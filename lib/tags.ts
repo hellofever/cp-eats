@@ -7,6 +7,7 @@ export interface Tag {
   kind: TagKind;
   name: string;
   color: string | null;
+  icon: string | null;
   created_at: string;
 }
 
@@ -34,11 +35,11 @@ export async function fetchTags(kind: TagKind): Promise<Tag[]> {
   return data as Tag[];
 }
 
-export async function createTag(kind: TagKind, name: string): Promise<Tag> {
+export async function createTag(kind: TagKind, name: string, icon?: string | null): Promise<Tag> {
   const color = kind === "tag" ? await nextPaletteColor() : null;
   const { data, error } = await supabase
     .from("tags")
-    .insert({ kind, name, color })
+    .insert({ kind, name, color, icon: kind === "tag" ? (icon ?? null) : null })
     .select()
     .single();
 
@@ -56,6 +57,35 @@ async function nextPaletteColor(): Promise<string> {
 
 export function tagColor(tag: Tag | null | undefined): string {
   return tag?.color ?? "#5c6355";
+}
+
+// Curated set of Phosphor icon names offered when creating a new tag (see
+// TagPicker) -- kept as a fixed whitelist rather than free text so every tag
+// icon is guaranteed to resolve to a real, food-appropriate glyph.
+export const TAG_ICONS = [
+  "ForkKnife",
+  "Coffee",
+  "Bread",
+  "IceCream",
+  "BowlFood",
+  "Hamburger",
+  "Pizza",
+  "CookingPot",
+  "Wine",
+  "Cookie",
+  "Fish",
+  "BeerStein",
+] as const;
+
+export type TagIconName = (typeof TAG_ICONS)[number];
+
+const DEFAULT_TAG_ICON: TagIconName = "ForkKnife";
+
+export function tagIcon(tag: Tag | null | undefined): TagIconName {
+  if (tag?.icon && (TAG_ICONS as readonly string[]).includes(tag.icon)) {
+    return tag.icon as TagIconName;
+  }
+  return DEFAULT_TAG_ICON;
 }
 
 // Best-effort mapping from Google Places' `primaryType` to a tag *name* -- this only

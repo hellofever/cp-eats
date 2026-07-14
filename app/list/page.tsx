@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { fetchRestaurants } from "@/lib/restaurants";
+import { MapPin, Trash } from "@phosphor-icons/react";
+import { deleteRestaurants, fetchRestaurants } from "@/lib/restaurants";
 import { tagColor } from "@/lib/tags";
 import { useRestaurantUI } from "@/components/AppShell";
+import { BottomSheet } from "@/components/BottomSheet";
 import { ListFilters, matchesFilters, type FilterState } from "@/components/ListFilters";
 import { DEFAULT_SORT, SORT_OPTIONS, groupByArea, isSortKey, sortRestaurants } from "@/lib/sort";
 import type { Restaurant } from "@/lib/types";
@@ -21,10 +23,19 @@ function matches(r: Restaurant, q: string): boolean {
   );
 }
 
-function RestaurantRow({ restaurant: r, onClick }: { restaurant: Restaurant; onClick: () => void }) {
+function RestaurantRow({
+  restaurant: r,
+  onClick,
+  onContextMenu,
+}: {
+  restaurant: Restaurant;
+  onClick: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+}) {
   return (
     <button
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className="flex items-center gap-3 rounded-lg border border-black/10 px-3 py-2.5 text-left dark:border-white/10"
     >
       <span
@@ -52,9 +63,54 @@ export default function ListPage() {
   const router = useRouter();
   const pathname = usePathname();
   const query = searchParams.get("q") ?? "";
-  const { openDetail, openAdd, refreshToken } = useRestaurantUI();
+  const { openDetail, openAdd, refreshToken, refresh } = useRestaurantUI();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contextMenu, setContextMenu] = useState<{ restaurant: Restaurant; x: number; y: number } | null>(
+    null
+  );
+  const [deleteTarget, setDeleteTarget] = useState<Restaurant | null>(null);
+
+  function handleRowContextMenu(e: React.MouseEvent, restaurant: Restaurant) {
+    e.preventDefault();
+    setContextMenu({ restaurant, x: e.clientX, y: e.clientY });
+  }
+
+  function viewPlaceOnMap(restaurant: Restaurant) {
+    setContextMenu(null);
+    router.push(`/?place=${restaurant.id}`);
+  }
+
+  function deleteFromContextMenu(restaurant: Restaurant) {
+    setContextMenu(null);
+    setDeleteTarget(restaurant);
+  }
+
+  async function handleDeleteConfirmed() {
+    if (!deleteTarget) return;
+    await deleteRestaurants([deleteTarget.id]);
+    setDeleteTarget(null);
+    setLoading(true);
+    fetchRestaurants()
+      .then(setRestaurants)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+    refresh();
+  }
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const closeOnEscape = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("click", close);
+    document.addEventListener("scroll", close, true);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("click", close);
+      document.removeEventListener("scroll", close, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [contextMenu]);
 
   const filters: FilterState = {
     tagIds: (searchParams.get("tags") ?? "").split(",").filter(Boolean),
@@ -154,12 +210,22 @@ export default function ListPage() {
                     {group.areaName}
                   </h3>
                   {group.restaurants.map((r) => (
-                    <RestaurantRow key={r.id} restaurant={r} onClick={() => openDetail(r)} />
+                    <RestaurantRow
+                      key={r.id}
+                      restaurant={r}
+                      onClick={() => openDetail(r)}
+                      onContextMenu={(e) => handleRowContextMenu(e, r)}
+                    />
                   ))}
                 </div>
               ))
             : flat!.map((r) => (
-                <RestaurantRow key={r.id} restaurant={r} onClick={() => openDetail(r)} />
+                <RestaurantRow
+                  key={r.id}
+                  restaurant={r}
+                  onClick={() => openDetail(r)}
+                  onContextMenu={(e) => handleRowContextMenu(e, r)}
+                />
               ))}
           {matched.length === 0 && (
             <p className="p-6 text-center text-sm text-black/50 dark:text-white/50">
@@ -168,6 +234,50 @@ export default function ListPage() {
           )}
         </div>
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed z-40 w-48 overflow-hidden rounded-lg border border-black/10 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-zinc-900"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => viewPlaceOnMap(contextMenu.restaurant)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-black/[.04] dark:hover:bg-white/5"
+          >
+            <MapPin size={16} />
+            View place on map
+          </button>
+          <button
+            type="button"
+            onClick={() => deleteFromContextMenu(contextMenu.restaurant)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-black/[.04] dark:hover:bg-white/5"
+          >
+            <Trash size={16} />
+            Delete place
+          </button>
+        </div>
+      )}
+
+      <BottomSheet open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
+        <h2 className="mb-2 pr-6 text-lg font-semibold">Delete {deleteTarget?.name}?</h2>
+        <p className="mb-4 text-sm text-black/60 dark:text-white/60">This can&apos;t be undone.</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setDeleteTarget(null)}
+            className="flex-1 rounded-lg border border-black/10 py-2 text-sm dark:border-white/10"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDeleteConfirmed}
+            className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white"
+          >
+            Delete
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

@@ -63,7 +63,7 @@ export default function SheetPage() {
   const router = useRouter();
   const pathname = usePathname();
   const query = searchParams.get("q") ?? "";
-  const { openDetail, openEdit, openAddInline, refreshToken, refresh } = useRestaurantUI();
+  const { openEdit, openAddInline, refreshToken, refresh } = useRestaurantUI();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -241,7 +241,6 @@ export default function SheetPage() {
 
   function goToPlace(restaurant: Restaurant) {
     setContextMenu(null);
-    openDetail(restaurant);
     router.push(`/?place=${restaurant.id}`);
   }
 
@@ -539,7 +538,7 @@ export default function SheetPage() {
             className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-black/[.04] dark:hover:bg-white/5"
           >
             <MapPin size={16} />
-            Go to place
+            View place on map
           </button>
           <button
             type="button"
@@ -547,7 +546,7 @@ export default function SheetPage() {
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-black/[.04] dark:hover:bg-white/5"
           >
             <Trash size={16} />
-            Delete
+            Delete place
           </button>
         </div>
       )}
