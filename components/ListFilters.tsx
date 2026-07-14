@@ -109,15 +109,16 @@ export function ListFilters({
               </div>
             )}
 
-            {activeCount > 0 && (
+            <div className="border-t border-black/10 pt-3 dark:border-white/10">
               <button
                 type="button"
+                disabled={activeCount === 0}
                 onClick={() => onChange(EMPTY_FILTERS)}
-                className="w-fit text-xs text-black/50 underline dark:text-white/50"
+                className="w-full rounded-md border border-black/15 px-2.5 py-1.5 text-xs font-medium text-black/70 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-white/70"
               >
-                Clear filters
+                Reset all filters
               </button>
-            )}
+            </div>
           </div>
         </Dropdown>
         {trailing}
