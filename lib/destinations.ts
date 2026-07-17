@@ -36,3 +36,27 @@ export async function createDestination(input: {
   if (error) throw error;
   return data as Destination;
 }
+
+export async function updateDestination(
+  id: string,
+  updates: Partial<Pick<Destination, "name" | "google_place_id" | "lat" | "lng">>
+): Promise<Destination> {
+  const { data, error } = await supabase
+    .from("destinations")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Destination;
+}
+
+// restaurants.destination_id is a NOT NULL FK with no ON DELETE clause (see
+// 0010_destinations.sql), so this throws if any restaurant still references this
+// destination -- callers should check/warn before letting the user confirm (see
+// DestinationSettings).
+export async function deleteDestination(id: string): Promise<void> {
+  const { error } = await supabase.from("destinations").delete().eq("id", id);
+  if (error) throw error;
+}

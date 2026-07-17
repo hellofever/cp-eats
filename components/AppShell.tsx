@@ -64,6 +64,7 @@ interface RestaurantUIContextValue {
   patchTagCache: (tag: Tag) => void;
   removeTagFromCache: (kind: TagKind, id: string) => void;
   patchDestinationCache: (destination: Destination) => void;
+  removeDestinationFromCache: (id: string) => void;
 }
 
 const RestaurantUIContext = createContext<RestaurantUIContextValue | null>(null);
@@ -212,6 +213,10 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
     setDestinations((prev) => upsertByIdSortedByCreatedAt(prev, destination));
   }
 
+  function removeDestinationFromCache(id: string) {
+    setDestinations((prev) => prev.filter((d) => d.id !== id));
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     Promise.all([syncDestinations(), syncTags()]).finally(() => setDestinationsAndTagsLoaded(true));
@@ -287,6 +292,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
         patchTagCache,
         removeTagFromCache,
         patchDestinationCache,
+        removeDestinationFromCache,
       }}
     >
       <Header onAdd={() => setSheet({ kind: "add" })} />

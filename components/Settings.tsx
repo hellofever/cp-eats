@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { CaretLeft, Gear, Tag } from "@phosphor-icons/react";
+import { CaretLeft, Gear, MapPin, Tag } from "@phosphor-icons/react";
 import { ThemeToggle } from "./ThemeToggle";
 import { DataSyncSettings } from "./DataSyncSettings";
 import { TagManager } from "./TagManager";
+import { DestinationSettings } from "./DestinationSettings";
 
-type Category = "general" | "tags";
+type Category = "general" | "destination" | "tags";
 
 const CATEGORIES: { id: Category; label: string; icon: typeof Gear }[] = [
   { id: "general", label: "General", icon: Gear },
+  { id: "destination", label: "Destination", icon: MapPin },
   { id: "tags", label: "Tag Manager", icon: Tag },
 ];
 
@@ -72,6 +74,7 @@ export function Settings() {
             <DataSyncSettings />
           </div>
         )}
+        {category === "destination" && <DestinationSettings />}
         {category === "tags" && <TagManager />}
       </div>
     </div>

@@ -5,17 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CaretDown } from "@phosphor-icons/react";
 import { Dropdown, dropdownTriggerClass } from "./Dropdown";
 import { BottomSheet } from "./BottomSheet";
+import { PlaceSearchPicker, type PlacePickResult } from "./PlaceSearchPicker";
 import { useRestaurantUI } from "./AppShell";
-import { placesFetch } from "@/lib/placesApi";
 import { createDestination, type Destination } from "@/lib/destinations";
-
-interface PlaceResult {
-  placeId: string;
-  name: string;
-  address: string;
-  lat: number | null;
-  lng: number | null;
-}
 
 // The dropdown next to "CP Places" that scopes the whole app to one destination --
 // switching just points ?destination= at a different id (AppShell's context refetches
@@ -100,31 +92,12 @@ function NewDestinationForm({
   onCancel: () => void;
 }) {
   const { destinations } = useRestaurantUI();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<PlaceResult[]>([]);
-  const [searched, setSearched] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [picked, setPicked] = useState<PlaceResult | null>(null);
+  const [picked, setPicked] = useState<PlacePickResult | null>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function runSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await placesFetch("search", { query });
-      const data = await res.json();
-      setResults(data.results ?? []);
-      setSearched(true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function pick(result: PlaceResult) {
+  function pick(result: PlacePickResult) {
     setPicked(result);
     setName(result.name);
     setError(null);
@@ -191,42 +164,7 @@ function NewDestinationForm({
   return (
     <div className="flex flex-col gap-3">
       <h2 className="pr-8 text-lg font-semibold">New destination</h2>
-      <form onSubmit={runSearch} className="flex gap-2">
-        <input
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="City or country, e.g. Mexico City, Mexico"
-          className={`flex-1 ${inputClass}`}
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black"
-        >
-          {loading ? "…" : "Search"}
-        </button>
-      </form>
-
-      {searched && results.length === 0 && (
-        <p className="text-sm text-black/60 dark:text-white/60">
-          Couldn’t find that place on Google Maps — try a different name.
-        </p>
-      )}
-      {results.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {results.map((r) => (
-            <button
-              key={r.placeId}
-              onClick={() => pick(r)}
-              className="flex flex-col rounded-lg border border-black/10 px-3 py-2 text-left text-sm hover:bg-black/[.03] dark:border-white/10 dark:hover:bg-white/5"
-            >
-              <span className="font-medium">{r.name}</span>
-              <span className="text-black/60 dark:text-white/60">{r.address}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
+      <PlaceSearchPicker placeholder="City or country, e.g. Mexico City, Mexico" onPick={pick} />
       <button onClick={onCancel} className="w-fit text-sm text-black/60 underline dark:text-white/60">
         Cancel
       </button>
