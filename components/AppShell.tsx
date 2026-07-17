@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { fetchRestaurants } from "@/lib/restaurants";
-import { fetchTags, type Tag } from "@/lib/tags";
+import { fetchTags, type Tag, type TagKind } from "@/lib/tags";
 import { fetchDestinations, type Destination } from "@/lib/destinations";
 import type { Restaurant } from "@/lib/types";
 import { Header } from "./Header";
@@ -62,6 +62,7 @@ interface RestaurantUIContextValue {
   patchRestaurantCache: (restaurant: Restaurant) => void;
   removeRestaurantsCache: (ids: string[]) => void;
   patchTagCache: (tag: Tag) => void;
+  removeTagFromCache: (kind: TagKind, id: string) => void;
   patchDestinationCache: (destination: Destination) => void;
 }
 
@@ -202,6 +203,11 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
     setter((prev) => upsertByIdSortedByName(prev, tag));
   }
 
+  function removeTagFromCache(kind: TagKind, id: string) {
+    const setter = { type: setTypes, tags: setTags, area: setAreas }[kind];
+    setter((prev) => prev.filter((t) => t.id !== id));
+  }
+
   function patchDestinationCache(destination: Destination) {
     setDestinations((prev) => upsertByIdSortedByCreatedAt(prev, destination));
   }
@@ -279,6 +285,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
         patchRestaurantCache,
         removeRestaurantsCache,
         patchTagCache,
+        removeTagFromCache,
         patchDestinationCache,
       }}
     >

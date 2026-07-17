@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { NavigationArrow, ArrowsOut, PencilSimple, Star, X } from "@phosphor-icons/react";
+import { NavigationArrow, ArrowsOut, MapPin, PencilSimple, Star, X } from "@phosphor-icons/react";
 import { PHOSPHOR_ICON_MAP, tagColor, tagIcon } from "@/lib/tags";
 import { setFavourite } from "@/lib/restaurants";
 import { useRestaurantUI } from "./AppShell";
@@ -99,6 +99,7 @@ export function RestaurantCardContent({
             key={a.id}
             className="inline-flex items-center gap-1 rounded-full border border-black/15 px-2.5 py-1 text-[11px] font-medium text-black/60 dark:border-white/15 dark:text-white/60"
           >
+            <MapPin size={12} weight="fill" />
             {a.name}
           </span>
         ))}

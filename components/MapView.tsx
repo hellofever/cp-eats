@@ -11,7 +11,9 @@ import { matchesFilters } from "./ListFilters";
 import type { Restaurant } from "@/lib/types";
 import type { Destination } from "@/lib/destinations";
 
-const FOCUS_ZOOM = 17;
+// Shared zoom for both "pan to a selected pin" and "locate me" -- street scale
+// (~4m/px, so a phone-width viewport spans roughly 1.5km).
+const FOCUS_ZOOM = 16;
 // Fixed recenter zoom on a destination switch -- a bit wider than a single-restaurant
 // focus so a whole city reads reasonably, though a country-sized destination (e.g.
 // "Mexico") will still look too zoomed-in at this level. Getting that right needs
@@ -21,9 +23,6 @@ const DESTINATION_ZOOM = 11;
 // Type-safety fallback only -- AuthenticatedShell (see AppShell.tsx) never renders
 // MapView until activeDestination has resolved, so this never actually surfaces.
 const FALLBACK_CENTER = { lat: -33.8688, lng: 151.2093 };
-// Wider than FOCUS_ZOOM -- centering on the user shouldn't snap in as tight as
-// focusing a single restaurant pin, it should still show the surrounding area.
-const LOCATE_ZOOM = 14;
 // fitBounds zooms all the way to street level for a single-restaurant match (a
 // zero-area box) -- cap it at roughly suburb scale instead.
 const FIT_MAX_ZOOM = 16;
@@ -36,8 +35,7 @@ function FocusOnPlace({ restaurant }: { restaurant: Restaurant | null }) {
   const map = useMap();
   useEffect(() => {
     if (!map || !restaurant || restaurant.lat == null || restaurant.lng == null) return;
-    map.panTo({ lat: restaurant.lat, lng: restaurant.lng });
-    map.setZoom(FOCUS_ZOOM);
+    animateCameraTo(map, { lat: restaurant.lat, lng: restaurant.lng, zoom: FOCUS_ZOOM });
   }, [map, restaurant]);
   return null;
 }
@@ -109,7 +107,7 @@ function RestaurantMarker({
     <AdvancedMarker
       position={{ lat: restaurant.lat, lng: restaurant.lng }}
       onClick={() => {
-        map?.panTo({ lat: restaurant.lat, lng: restaurant.lng });
+        if (map) animateCameraTo(map, { lat: restaurant.lat, lng: restaurant.lng, zoom: FOCUS_ZOOM });
         onSelect(restaurant);
       }}
     >
@@ -149,7 +147,7 @@ function MapExpandButton({
   );
 }
 
-const LOCATE_ANIMATION_MS = 600;
+const LOCATE_ANIMATION_MS = 800;
 
 function easeOutCubic(t: number) {
   return 1 - Math.pow(1 - t, 3);
@@ -197,7 +195,7 @@ function LocateMeButton({ onLocated }: { onLocated: (position: { lat: number; ln
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const point = { lat: position.coords.latitude, lng: position.coords.longitude };
-        if (map) animateCameraTo(map, { ...point, zoom: LOCATE_ZOOM });
+        if (map) animateCameraTo(map, { ...point, zoom: FOCUS_ZOOM });
         onLocated(point);
         setLocating(false);
       },
@@ -291,6 +289,7 @@ export function MapView({
             defaultZoom={DESTINATION_ZOOM}
             mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "7a03f40461f9aed667a8cf4f"}
             gestureHandling="greedy"
+            clickableIcons={false}
             mapTypeControl={false}
             fullscreenControl={false}
             streetViewControl={false}

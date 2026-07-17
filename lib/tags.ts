@@ -35,6 +35,12 @@ export const TAG_PALETTE = [
   "#4c5f8a", // dusty blue
   "#9c3f34", // brick
   "#5f7a3d", // moss
+  "#8a6a4c", // coffee
+  "#4a7a8a", // slate teal
+  "#8a4a5f", // wine
+  "#6b6b3d", // olive
+  "#5a4a8a", // indigo
+  "#3d5f4c", // pine
 ];
 
 export async function fetchTags(kind: TagKind): Promise<Tag[]> {
@@ -48,16 +54,46 @@ export async function fetchTags(kind: TagKind): Promise<Tag[]> {
   return data as Tag[];
 }
 
-export async function createTag(kind: TagKind, name: string, icon?: string | null): Promise<Tag> {
-  const color = kind === "type" ? await nextPaletteColor() : null;
+export async function createTag(
+  kind: TagKind,
+  name: string,
+  icon?: string | null,
+  color?: string | null
+): Promise<Tag> {
+  const resolvedColor = kind === "type" ? (color ?? (await nextPaletteColor())) : null;
   const { data, error } = await supabase
     .from("tags")
-    .insert({ kind, name, color, icon: kind === "type" ? (icon ?? null) : null })
+    .insert({ kind, name, color: resolvedColor, icon: kind === "type" ? (icon ?? null) : null })
     .select()
     .single();
 
   if (error) throw error;
   return data as Tag;
+}
+
+export async function updateTag(
+  id: string,
+  updates: Partial<Pick<Tag, "color" | "icon">>
+): Promise<Tag> {
+  const { data, error } = await supabase.from("tags").update(updates).eq("id", id).select().single();
+
+  if (error) throw error;
+  return data as Tag;
+}
+
+export async function deleteTag(id: string): Promise<void> {
+  const { error } = await supabase.from("tags").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function countTagUsage(tagId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("restaurant_tags")
+    .select("restaurant_id", { count: "exact", head: true })
+    .eq("tag_id", tagId);
+
+  if (error) throw error;
+  return count ?? 0;
 }
 
 async function nextPaletteColor(): Promise<string> {
@@ -88,6 +124,14 @@ export const TAG_ICONS = [
   "Cookie",
   "Fish",
   "BeerStein",
+  "Cake",
+  "ChefHat",
+  "Cheese",
+  "Carrot",
+  "Avocado",
+  "Martini",
+  "Popcorn",
+  "BowlSteam",
 ] as const;
 
 export type TagIconName = (typeof TAG_ICONS)[number];

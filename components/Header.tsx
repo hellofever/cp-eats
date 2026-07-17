@@ -5,8 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Gear, List as ListIcon, Plus } from "@phosphor-icons/react";
 import { BottomSheet } from "./BottomSheet";
-import { ThemeToggle } from "./ThemeToggle";
-import { DataSyncSettings } from "./DataSyncSettings";
+import { Settings } from "./Settings";
 import { MapSearchExpand } from "./MapSearchExpand";
 import { DestinationSwitcher } from "./DestinationSwitcher";
 
@@ -172,11 +171,15 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         </div>
       </BottomSheet>
 
-      <BottomSheet open={settingsOpen} onClose={() => setSettingsOpen(false)}>
-        <h2 className="text-lg font-semibold">Settings</h2>
-        <div className="mt-4 flex flex-col gap-4">
-          <ThemeToggle />
-          <DataSyncSettings />
+      <BottomSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        widthClassName="sm:max-w-2xl"
+        heightClassName="h-screen! sm:h-[600px]!"
+      >
+        <h2 className="hidden text-lg font-semibold md:block">Settings</h2>
+        <div className="flex min-h-0 flex-1 flex-col md:mt-4">
+          <Settings />
         </div>
       </BottomSheet>
     </header>
