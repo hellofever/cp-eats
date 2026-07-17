@@ -4,11 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "@phosphor-icons/react";
-import { fetchTags, type Tag } from "@/lib/tags";
-import { fetchRestaurants } from "@/lib/restaurants";
 import { matchesQuery } from "@/lib/search";
 import { TagPicker } from "@/components/TagPicker";
 import { RestaurantCardContent } from "@/components/RestaurantCardContent";
+import { useRestaurantUI } from "@/components/AppShell";
 import type { Restaurant } from "@/lib/types";
 
 const searchInputClass =
@@ -31,34 +30,17 @@ const searchInputClass =
 export function MapSearchExpand() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { tags, areas, restaurants } = useRestaurantUI();
   const [value, setValue] = useState("");
   const [expanded, setExpanded] = useState(false);
-  const [restaurantsLoaded, setRestaurantsLoaded] = useState(false);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [areas, setAreas] = useState<Tag[]>([]);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const tagIds = (searchParams.get("tags") ?? "").split(",").filter(Boolean);
   const areaIds = (searchParams.get("areas") ?? "").split(",").filter(Boolean);
 
-  // Tags/areas load up front (cheap) so the collapsed-field summary below is correct
-  // even before the panel's ever been opened, e.g. arriving via a ?tags= link.
-  useEffect(() => {
-    Promise.all([fetchTags("tag"), fetchTags("area")])
-      .then(([t, a]) => {
-        setTags(t);
-        setAreas(a);
-      })
-      .catch(console.error);
-  }, []);
-
   function open() {
     setExpanded(true);
-    if (restaurantsLoaded) return;
-    setRestaurantsLoaded(true);
-    fetchRestaurants().then(setRestaurants).catch(console.error);
   }
 
   function close() {
@@ -134,6 +116,7 @@ export function MapSearchExpand() {
         allowCreate={false}
         selectedIds={tagIds}
         onChange={(ids) => updateIds("tags", ids)}
+        resetLabel="Reset tags"
       />
       <TagPicker
         kind="area"
@@ -142,6 +125,7 @@ export function MapSearchExpand() {
         allowCreate={false}
         selectedIds={areaIds}
         onChange={(ids) => updateIds("areas", ids)}
+        resetLabel="Reset area"
       />
     </div>
   );

@@ -16,7 +16,7 @@ export function RestaurantCardContent({
   onClose?: () => void;
   showActions?: boolean;
 }) {
-  const { openDetail, openEdit, refresh } = useRestaurantUI();
+  const { openDetail, openEdit, patchRestaurantCache } = useRestaurantUI();
   const [favourite, setFavouriteState] = useState(restaurant.is_favourite);
   const [toggling, setToggling] = useState(false);
 
@@ -28,7 +28,7 @@ export function RestaurantCardContent({
     setToggling(true);
     try {
       await setFavourite(restaurant.id, next);
-      refresh();
+      patchRestaurantCache({ ...restaurant, is_favourite: next });
     } catch (err) {
       setFavouriteState(!next);
       console.error(err);

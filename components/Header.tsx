@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Gear, List as ListIcon, Plus } from "@phosphor-icons/react";
 import { BottomSheet } from "./BottomSheet";
 import { ThemeToggle } from "./ThemeToggle";
+import { DataSyncSettings } from "./DataSyncSettings";
 import { MapSearchExpand } from "./MapSearchExpand";
 
 const TABS = [
@@ -161,8 +162,9 @@ export function Header({ onAdd }: { onAdd: () => void }) {
 
       <BottomSheet open={settingsOpen} onClose={() => setSettingsOpen(false)}>
         <h2 className="text-lg font-semibold">Settings</h2>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-4">
           <ThemeToggle />
+          <DataSyncSettings />
         </div>
       </BottomSheet>
     </header>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { TagPills } from "@/components/TagPills";
-import { createTag, fetchTags, PHOSPHOR_ICON_MAP, TAG_ICONS, type Tag, type TagKind } from "@/lib/tags";
+import { createTag, PHOSPHOR_ICON_MAP, TAG_ICONS, type TagKind } from "@/lib/tags";
+import { useRestaurantUI } from "./AppShell";
 
 // Shared multi/single-select for tags, area, and city -- all three are user-creatable,
 // freeform lists stored the same way (see lib/tags.ts). Options render as a single row
@@ -19,6 +20,7 @@ export function TagPicker({
   onChange,
   initialQuery,
   allowCreate = true,
+  resetLabel,
 }: {
   kind: TagKind;
   label: string;
@@ -27,16 +29,14 @@ export function TagPicker({
   onChange: (ids: string[]) => void;
   initialQuery?: string;
   allowCreate?: boolean;
+  resetLabel?: string;
 }) {
-  const [options, setOptions] = useState<Tag[]>([]);
+  const { tags, areas, cities, patchTagCache } = useRestaurantUI();
+  const options = kind === "tag" ? tags : kind === "area" ? areas : cities;
   const [showCreate, setShowCreate] = useState(!!initialQuery);
   const [createValue, setCreateValue] = useState(initialQuery ?? "");
   const [createIcon, setCreateIcon] = useState<string>(TAG_ICONS[0]);
   const [creating, setCreating] = useState(false);
-
-  useEffect(() => {
-    fetchTags(kind).then(setOptions).catch(console.error);
-  }, [kind]);
 
   function toggle(id: string) {
     if (multiple) {
@@ -51,7 +51,7 @@ export function TagPicker({
     setCreating(true);
     try {
       const tag = await createTag(kind, createValue.trim(), kind === "tag" ? createIcon : null);
-      setOptions((o) => [...o, tag]);
+      patchTagCache(tag);
       onChange(multiple ? [...selectedIds, tag.id] : [tag.id]);
       setCreateValue("");
       setCreateIcon(TAG_ICONS[0]);
@@ -63,7 +63,18 @@ export function TagPicker({
 
   return (
     <div className="flex flex-col gap-1.5 text-sm">
-      <span>{label}</span>
+      <div className="flex items-center justify-between">
+        <span>{label}</span>
+        {resetLabel && selectedIds.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-xs font-medium text-black/50 hover:text-black/80 dark:text-white/50 dark:hover:text-white/80"
+          >
+            {resetLabel}
+          </button>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-1.5">
         <TagPills kind={kind} options={options} selectedIds={selectedIds} onToggle={toggle} />

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MapPin, Trash } from "@phosphor-icons/react";
-import { deleteRestaurants, fetchRestaurants } from "@/lib/restaurants";
+import { deleteRestaurants } from "@/lib/restaurants";
 import { tagColor } from "@/lib/tags";
 import { matchesQuery } from "@/lib/search";
 import { useRestaurantUI } from "@/components/AppShell";
@@ -52,9 +52,7 @@ export default function ListPage() {
   const router = useRouter();
   const pathname = usePathname();
   const query = searchParams.get("q") ?? "";
-  const { openDetail, openAdd, refreshToken, refresh } = useRestaurantUI();
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { openDetail, openAdd, restaurants, removeRestaurantsCache } = useRestaurantUI();
   const [contextMenu, setContextMenu] = useState<{ restaurant: Restaurant; x: number; y: number } | null>(
     null
   );
@@ -79,12 +77,7 @@ export default function ListPage() {
     if (!deleteTarget) return;
     await deleteRestaurants([deleteTarget.id]);
     setDeleteTarget(null);
-    setLoading(true);
-    fetchRestaurants()
-      .then(setRestaurants)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-    refresh();
+    removeRestaurantsCache([deleteTarget.id]);
   }
 
   useEffect(() => {
@@ -130,29 +123,9 @@ export default function ListPage() {
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }
 
-  useEffect(() => {
-    setLoading(true);
-    fetchRestaurants()
-      .then(setRestaurants)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [refreshToken]);
-
   const matched = restaurants.filter((r) => matchesQuery(r, query) && matchesFilters(r, filters));
   const groupedByArea = sort === "area" ? groupByArea(matched) : null;
   const flat = groupedByArea ? null : sortRestaurants(matched, sort);
-
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col overflow-y-auto p-4">
-        <div className="mx-auto flex w-full max-w-[800px] flex-col gap-2">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-[58px] animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   if (restaurants.length === 0) {
     return (

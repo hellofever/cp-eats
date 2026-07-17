@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { TagPicker } from "./TagPicker";
-import { fetchTags, type Tag } from "@/lib/tags";
+import { useRestaurantUI } from "./AppShell";
 import type { RestaurantInput } from "@/lib/types";
 
 export function RestaurantForm({
@@ -30,14 +30,10 @@ export function RestaurantForm({
   const [website, setWebsite] = useState(initial.website ?? "");
   const [priceLevel, setPriceLevel] = useState<number | null>(initial.price_level ?? null);
   const [notes, setNotes] = useState(initial.notes ?? "");
-  const [tagOptions, setTagOptions] = useState<Tag[]>([]);
+  const { tags: tagOptions } = useRestaurantUI();
   const [editingLocation, setEditingLocation] = useState(initial.lat === undefined);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchTags("tag").then(setTagOptions).catch(console.error);
-  }, []);
 
   // Keep primaryTagId valid as the tag selection changes: auto-pick when there's
   // exactly one, clear/reassign if the current primary was removed.

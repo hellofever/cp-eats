@@ -56,7 +56,7 @@ export function RestaurantDetailView({
     restaurant.website && /^https?:\/\//i.test(restaurant.website.trim())
       ? restaurant.website.trim()
       : null;
-  const { refresh } = useRestaurantUI();
+  const { patchRestaurantCache } = useRestaurantUI();
   const [favourite, setFavouriteState] = useState(restaurant.is_favourite);
   const [toggling, setToggling] = useState(false);
 
@@ -66,7 +66,7 @@ export function RestaurantDetailView({
     setToggling(true);
     try {
       await setFavourite(restaurant.id, next);
-      refresh();
+      patchRestaurantCache({ ...restaurant, is_favourite: next });
     } catch (err) {
       setFavouriteState(!next);
       console.error(err);

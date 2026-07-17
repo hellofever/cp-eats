@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Dropdown, dropdownTriggerClass } from "@/components/Dropdown";
 import { TagPills } from "@/components/TagPills";
-import { fetchTags, type Tag } from "@/lib/tags";
+import type { Tag } from "@/lib/tags";
+import { useRestaurantUI } from "@/components/AppShell";
 
 export interface FilterState {
   tagIds: string[];
@@ -38,13 +38,7 @@ export function ListFilters({
   trailing?: React.ReactNode;
   className?: string;
 }) {
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [areas, setAreas] = useState<Tag[]>([]);
-
-  useEffect(() => {
-    fetchTags("tag").then(setTags).catch(console.error);
-    fetchTags("area").then(setAreas).catch(console.error);
-  }, []);
+  const { tags, areas } = useRestaurantUI();
 
   const activeCount = value.tagIds.length + value.areaIds.length + (value.favouritesOnly ? 1 : 0);
 
@@ -93,7 +87,18 @@ export function ListFilters({
 
             {tags.length > 0 && (
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-black/50 dark:text-white/50">Tags</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-black/50 dark:text-white/50">Tags</span>
+                  {value.tagIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...value, tagIds: [] })}
+                      className="text-xs font-medium text-black/50 hover:text-black/80 dark:text-white/50 dark:hover:text-white/80"
+                    >
+                      Reset tags
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   <TagPills kind="tag" options={tags} selectedIds={value.tagIds} onToggle={toggleTag} />
                 </div>
@@ -102,7 +107,18 @@ export function ListFilters({
 
             {areas.length > 0 && (
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-black/50 dark:text-white/50">Area</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-black/50 dark:text-white/50">Area</span>
+                  {value.areaIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...value, areaIds: [] })}
+                      className="text-xs font-medium text-black/50 hover:text-black/80 dark:text-white/50 dark:hover:text-white/80"
+                    >
+                      Reset area
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   <TagPills kind="area" options={areas} selectedIds={value.areaIds} onToggle={toggleArea} />
                 </div>

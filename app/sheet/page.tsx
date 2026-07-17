@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   deleteRestaurants,
-  fetchRestaurants,
   patchRestaurant,
   setFavourite,
   updateRestaurantTags,
@@ -88,9 +87,15 @@ export default function SheetPage() {
   const router = useRouter();
   const pathname = usePathname();
   const query = searchParams.get("q") ?? "";
-  const { openEdit, openAddInline, refreshToken, refresh } = useRestaurantUI();
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    openEdit,
+    openAddInline,
+    restaurants,
+    removeRestaurantsCache,
+    patchRestaurantCache,
+    syncRestaurants,
+    syncTags,
+  } = useRestaurantUI();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [needsReview, setNeedsReview] = useState<Set<string>>(new Set());
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -179,16 +184,6 @@ export default function SheetPage() {
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }
 
-  async function reload() {
-    const data = await fetchRestaurants();
-    setRestaurants(data);
-  }
-
-  useEffect(() => {
-    setLoading(true);
-    reload().finally(() => setLoading(false));
-  }, [refreshToken]);
-
   const filtered = restaurants.filter((r) => matchesQuery(r, query) && matchesFilters(r, filters));
   const sorted = [...filtered].sort((a, b) => compareRestaurants(a, b, sortColumn, sortDir));
   const visibleColumns = COLUMNS.filter((col) => !hiddenColumns.has(col.key));
@@ -274,8 +269,8 @@ export default function SheetPage() {
 
   async function commitCell(restaurant: Restaurant, column: SheetColumn, raw: string) {
     await applyCellEdit(restaurant, column, raw);
-    await reload();
-    refresh();
+    await syncRestaurants();
+    if (column === "tags" || column === "area") await syncTags();
   }
 
   // Pasting starting from a text-input column (Name/Phone/Address/Price/Notes) cascades
@@ -289,6 +284,7 @@ export default function SheetPage() {
       .split(/\r\n|\n|\r/)
       .filter((line, i, arr) => !(i === arr.length - 1 && line === ""));
     const anchorColIndex = visibleColumns.findIndex((c) => c.key === anchorColumn);
+    let touchedTagColumns = false;
 
     for (let ri = 0; ri < rows.length; ri++) {
       const original = sorted[rowIndex + ri];
@@ -301,12 +297,13 @@ export default function SheetPage() {
       for (let ci = 0; ci < cells.length; ci++) {
         const targetColumn = visibleColumns[anchorColIndex + ci];
         if (!targetColumn) break;
+        if (targetColumn.key === "tags" || targetColumn.key === "area") touchedTagColumns = true;
         await applyCellEdit(workingRestaurant, targetColumn.key, cells[ci]);
       }
     }
 
-    await reload();
-    refresh();
+    await syncRestaurants();
+    if (touchedTagColumns) await syncTags();
   }
 
   function toggleSelect(id: string) {
@@ -319,11 +316,11 @@ export default function SheetPage() {
   }
 
   async function handleDeleteConfirmed() {
-    await deleteRestaurants([...selectedIds]);
+    const ids = [...selectedIds];
+    await deleteRestaurants(ids);
     setSelectedIds(new Set());
     setConfirmingDelete(false);
-    await reload();
-    refresh();
+    removeRestaurantsCache(ids);
   }
 
   function exportCsv() {
@@ -366,8 +363,8 @@ export default function SheetPage() {
 
   function closeTagEditor() {
     setTagEditor(null);
-    reload();
-    refresh();
+    syncRestaurants();
+    syncTags();
   }
 
   function renderCell(r: Restaurant, column: SheetColumn) {
@@ -447,24 +444,12 @@ export default function SheetPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex-1 overflow-auto p-4">
-        <div className="flex flex-col gap-2">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-9 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   if (restaurants.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-sm text-black/50 dark:text-white/50">There are no places added.</p>
         <button
-          onClick={() => openAddInline("", () => reload())}
+          onClick={() => openAddInline("", (saved) => patchRestaurantCache(saved))}
           className="rounded-full bg-[#bd5a1f] px-4 py-2 text-sm font-medium text-white"
         >
           Add a place
@@ -662,9 +647,9 @@ export default function SheetPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        openAddInline(draftName, () => {
+                        openAddInline(draftName, (saved) => {
                           setDraftName("");
-                          reload();
+                          patchRestaurantCache(saved);
                         })
                       }
                       aria-label="Add restaurant"

@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
-import { ArrowsHorizontal } from "@phosphor-icons/react";
+import { ArrowsHorizontal, Target } from "@phosphor-icons/react";
 import { PHOSPHOR_ICON_MAP, tagColor, tagIcon } from "@/lib/tags";
-import { fetchRestaurants } from "@/lib/restaurants";
 import { useRestaurantUI } from "./AppShell";
 import { MapControlsDrawer } from "./MapControlsDrawer";
 import { MapBottomCard } from "./MapBottomCard";
@@ -12,6 +11,9 @@ import { matchesFilters } from "./ListFilters";
 import type { Restaurant } from "@/lib/types";
 
 const FOCUS_ZOOM = 17;
+// Wider than FOCUS_ZOOM -- centering on the user shouldn't snap in as tight as
+// focusing a single restaurant pin, it should still show the surrounding area.
+const LOCATE_ZOOM = 14;
 // fitBounds zooms all the way to street level for a single-restaurant match (a
 // zero-area box) -- cap it at roughly suburb scale instead.
 const FIT_MAX_ZOOM = 16;
@@ -109,6 +111,84 @@ function MapExpandButton({
   );
 }
 
+const LOCATE_ANIMATION_MS = 600;
+
+function easeOutCubic(t: number) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+// panTo() alone only animates the pan, not the zoom -- there's no built-in "animate to
+// zoom" method in the Maps JS API, so this hand-rolls the standard requestAnimationFrame
+// + moveCamera() easing pattern from Google's own "Move Camera Easing" example instead
+// of pulling in an animation library for one tween.
+function animateCameraTo(map: google.maps.Map, target: { lat: number; lng: number; zoom: number }) {
+  const startCenter = map.getCenter();
+  const startZoom = map.getZoom();
+  if (!startCenter || startZoom === undefined) {
+    map.moveCamera({ center: target, zoom: target.zoom });
+    return;
+  }
+  const start = { lat: startCenter.lat(), lng: startCenter.lng(), zoom: startZoom };
+  const startTime = performance.now();
+
+  function step(now: number) {
+    const t = easeOutCubic(Math.min((now - startTime) / LOCATE_ANIMATION_MS, 1));
+    map.moveCamera({
+      center: {
+        lat: start.lat + (target.lat - start.lat) * t,
+        lng: start.lng + (target.lng - start.lng) * t,
+      },
+      zoom: start.zoom + (target.zoom - start.zoom) * t,
+    });
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Centers the map on the browser's geolocation result. Kept as its own component (not
+// inline in MapView) since it needs useMap() -- same reason MapExpandButton is split
+// out above it. The located coordinates are reported up to MapView (rather than kept
+// local) so the same point can also render as a marker inside <Map>.
+function LocateMeButton({ onLocated }: { onLocated: (position: { lat: number; lng: number }) => void }) {
+  const map = useMap();
+  const [locating, setLocating] = useState(false);
+
+  function handleClick() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const point = { lat: position.coords.latitude, lng: position.coords.longitude };
+        if (map) animateCameraTo(map, { ...point, zoom: LOCATE_ZOOM });
+        onLocated(point);
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10_000 }
+    );
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={locating}
+      aria-label="Center on my location"
+      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-black/70 shadow backdrop-blur disabled:opacity-60 dark:bg-black/80 dark:text-white/70"
+    >
+      <Target size={22} weight="bold" className={locating ? "animate-pulse" : undefined} />
+    </button>
+  );
+}
+
+// The orange "you are here" dot dropped at the last located position.
+function UserLocationMarker({ position }: { position: { lat: number; lng: number } }) {
+  return (
+    <AdvancedMarker position={position}>
+      <div className="h-4 w-4 rounded-full border-2 border-white bg-orange-500 shadow" />
+    </AdvancedMarker>
+  );
+}
+
 export function MapView({
   focusPlaceId,
   tagIds = [],
@@ -118,25 +198,11 @@ export function MapView({
   tagIds?: string[];
   areaIds?: string[];
 }) {
-  const { refreshToken } = useRestaurantUI();
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loadError, setLoadError] = useState(false);
-  const [retryToken, setRetryToken] = useState(0);
+  const { restaurants, restaurantsError, syncRestaurants } = useRestaurantUI();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const centerBeforeResize = useRef<google.maps.LatLng | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchRestaurants()
-      .then((data) => {
-        setRestaurants(data);
-        setLoadError(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoadError(true);
-      });
-  }, [refreshToken, retryToken]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const focusedRestaurant = focusPlaceId
     ? (restaurants.find((r) => r.id === focusPlaceId) ?? null)
@@ -166,13 +232,10 @@ export function MapView({
     <APIProvider apiKey={apiKey}>
       <div className="relative flex flex-1 flex-col md:flex-row">
         <div className="relative min-h-0 min-w-0 flex-1 md:order-2">
-          {loadError && (
+          {restaurantsError && (
             <div className="absolute inset-x-0 top-4 z-10 mx-auto flex w-fit items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-sm text-black/70 shadow dark:bg-black/85 dark:text-white/70">
               Couldn’t load places.
-              <button
-                onClick={() => setRetryToken((n) => n + 1)}
-                className="font-medium underline"
-              >
+              <button onClick={() => syncRestaurants()} className="font-medium underline">
                 Retry
               </button>
             </div>
@@ -184,6 +247,11 @@ export function MapView({
             mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "7a03f40461f9aed667a8cf4f"}
             gestureHandling="greedy"
             mapTypeControl={false}
+            fullscreenControl={false}
+            streetViewControl={false}
+            rotateControl={false}
+            zoomControl={false}
+            cameraControl={false}
             onClick={() => setSelectedId(null)}
           >
             <FitToFilter active={tagIds.length > 0 || areaIds.length > 0} restaurants={filtered} />
@@ -195,13 +263,34 @@ export function MapView({
                 onSelect={(restaurant) => setSelectedId(restaurant.id)}
               />
             ))}
+            {userLocation && <UserLocationMarker position={userLocation} />}
           </Map>
           <MapExpandButton
             open={drawerOpen}
             onToggle={() => setDrawerOpen((o) => !o)}
             centerRef={centerBeforeResize}
           />
-          <MapBottomCard restaurant={selectedRestaurant} onClose={() => setSelectedId(null)} />
+
+          {/* Desktop: independent corner button + centered card, unchanged. */}
+          <div className="absolute bottom-4 right-4 z-20 hidden md:block">
+            <LocateMeButton onLocated={setUserLocation} />
+          </div>
+          <div className="hidden md:block">
+            <MapBottomCard restaurant={selectedRestaurant} onClose={() => setSelectedId(null)} />
+          </div>
+
+          {/* Mobile: one bottom-anchored flex column so the full-width card sliding in
+              pushes the locate button (and future stacked buttons) up above it. */}
+          <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 md:hidden">
+            <div className={`flex justify-end pr-4 ${selectedRestaurant ? "" : "pb-4"}`}>
+              <LocateMeButton onLocated={setUserLocation} />
+            </div>
+            <MapBottomCard
+              restaurant={selectedRestaurant}
+              onClose={() => setSelectedId(null)}
+              variant="sheet"
+            />
+          </div>
         </div>
         <MapControlsDrawer open={drawerOpen} centerRef={centerBeforeResize} />
       </div>
