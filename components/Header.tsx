@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Gear, List as ListIcon, Plus } from "@phosphor-icons/react";
+import { Gear, List as ListIcon, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import { BottomSheet } from "./BottomSheet";
 import { Settings } from "./Settings";
 import { MapSearchExpand } from "./MapSearchExpand";
@@ -57,13 +57,19 @@ export function Header({ onAdd }: { onAdd: () => void }) {
           {pathname === "/" ? (
             <MapSearchExpand />
           ) : (
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search restaurants…"
-              className="w-full max-w-xs rounded-full border border-black/10 bg-black/[.03] px-4 py-2 text-sm outline-none focus:border-black/30 dark:border-white/10 dark:bg-white/[.06] dark:focus:border-white/30"
-            />
+            <div className="relative w-full">
+              <MagnifyingGlass
+                size={16}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 dark:text-white/40"
+              />
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Search restaurants…"
+                className="w-full rounded-full border border-black/10 bg-black/[.03] py-2 pl-9 pr-4 text-sm outline-none focus:border-black/30 dark:border-white/10 dark:bg-white/[.06] dark:focus:border-white/30"
+              />
+            </div>
           )}
         </div>
       </div>
@@ -96,13 +102,19 @@ export function Header({ onAdd }: { onAdd: () => void }) {
           {pathname === "/" ? (
             <MapSearchExpand />
           ) : (
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search restaurants…"
-              className="w-full max-w-xs rounded-full border border-black/10 bg-black/[.03] px-4 py-2 text-sm outline-none focus:border-black/30 dark:border-white/10 dark:bg-white/[.06] dark:focus:border-white/30"
-            />
+            <div className="relative w-full max-w-xs">
+              <MagnifyingGlass
+                size={16}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 dark:text-white/40"
+              />
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Search restaurants…"
+                className="w-full rounded-full border border-black/10 bg-black/[.03] py-2 pl-9 pr-4 text-sm outline-none focus:border-black/30 dark:border-white/10 dark:bg-white/[.06] dark:focus:border-white/30"
+              />
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -123,7 +135,12 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         </div>
       </div>
 
-      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)}>
+      <BottomSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        widthClassName="md:max-w-md"
+        heightClassName="h-screen! md:h-fit!"
+      >
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold">CP Places</h2>
           <DestinationSwitcher beforeOpenCreate={() => setMenuOpen(false)} />
