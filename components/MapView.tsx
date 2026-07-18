@@ -26,6 +26,10 @@ const FALLBACK_CENTER = { lat: -33.8688, lng: 151.2093 };
 // fitBounds zooms all the way to street level for a single-restaurant match (a
 // zero-area box) -- cap it at roughly suburb scale instead.
 const FIT_MAX_ZOOM = 16;
+// Floor for ResetViewButton's fit-to-all-pins zoom -- stops the reset from swinging
+// out to a country/globe view when pins are very spread out (or one has a bad
+// coordinate), landing no wider than roughly a metro area.
+const RESET_MIN_ZOOM = DESTINATION_ZOOM - 4;
 
 // Imperatively pans/zooms once both the map instance and the target restaurant are
 // ready -- can't just use a smarter defaultCenter/defaultZoom, since the restaurant
@@ -233,11 +237,14 @@ function getBoundsZoom(bounds: google.maps.LatLngBounds, mapPx: { width: number;
 }
 
 // Same padding/maxZoom shape map.fitBounds() itself takes, but animates there via
-// animateCameraTo instead of snapping instantly.
+// animateCameraTo instead of snapping instantly. `minZoom` is opt-in (unlike
+// map.fitBounds(), which has no lower bound) -- callers whose bounds could span an
+// unreasonably wide area (a stray bad coordinate, or just a very spread-out pin set)
+// pass one to stop the camera from zooming out past a sensible floor.
 function animateFitBounds(
   map: google.maps.Map,
   bounds: google.maps.LatLngBounds,
-  { padding = 64, maxZoom = FIT_MAX_ZOOM }: { padding?: number; maxZoom?: number } = {}
+  { padding = 64, maxZoom = FIT_MAX_ZOOM, minZoom }: { padding?: number; maxZoom?: number; minZoom?: number } = {}
 ) {
   const div = map.getDiv();
   const width = div.clientWidth - padding * 2;
@@ -247,7 +254,8 @@ function animateFitBounds(
     return;
   }
   const center = bounds.getCenter();
-  const zoom = Math.min(getBoundsZoom(bounds, { width, height }), maxZoom);
+  let zoom = Math.min(getBoundsZoom(bounds, { width, height }), maxZoom);
+  if (minZoom != null) zoom = Math.max(zoom, minZoom);
   animateCameraTo(map, { lat: center.lat(), lng: center.lng(), zoom });
 }
 
@@ -286,10 +294,10 @@ function LocateMeButton({ onLocated }: { onLocated: (position: { lat: number; ln
   );
 }
 
-// Resets the camera to the active destination's own center/zoom -- same coordinates
-// the <Map>'s defaultCenter/defaultZoom and RecenterOnDestinationChange use elsewhere
-// in this file. Falls back to fitting every geo-tagged restaurant only when the
-// destination itself has no coordinates set yet.
+// Resets the camera to fit every currently loaded pin in view -- same fitBounds
+// approach as FitToAllOnLoad/FitToFilter above, rather than recentering on the
+// destination's own coordinates. Falls back to the destination's center/zoom only
+// when there are no geo-tagged restaurants to fit bounds to yet.
 function ResetViewButton({
   restaurants,
   destination,
@@ -301,14 +309,14 @@ function ResetViewButton({
 
   function handleClick() {
     if (!map) return;
-    if (destination?.lat != null && destination?.lng != null) {
-      animateCameraTo(map, { lat: destination.lat, lng: destination.lng, zoom: DESTINATION_ZOOM });
-      return;
-    }
     if (restaurants.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       restaurants.forEach((r) => bounds.extend({ lat: r.lat, lng: r.lng }));
-      animateFitBounds(map, bounds);
+      animateFitBounds(map, bounds, { minZoom: RESET_MIN_ZOOM });
+      return;
+    }
+    if (destination?.lat != null && destination?.lng != null) {
+      animateCameraTo(map, { lat: destination.lat, lng: destination.lng, zoom: DESTINATION_ZOOM });
     }
   }
 

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Suspense } from "react";
 import { ThemeProvider } from "next-themes";
@@ -22,6 +22,15 @@ const clashDisplay = localFont({
 export const metadata: Metadata = {
   title: "Commonplaces",
   description: "Our favourite restaurants, on a map.",
+};
+
+// Disables the browser's own pinch/double-tap page zoom, which otherwise fights
+// with the Google Map's own pinch-to-zoom gesture on touch devices.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
