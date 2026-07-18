@@ -97,9 +97,9 @@ export function MapSearchExpand() {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  const typeIds = (searchParams.get("types") ?? "").split(",").filter(Boolean);
-  const tagIds = (searchParams.get("tags") ?? "").split(",").filter(Boolean);
-  const areaIds = (searchParams.get("areas") ?? "").split(",").filter(Boolean);
+  const typeIds = (searchParams.get("mapTypes") ?? "").split(",").filter(Boolean);
+  const tagIds = (searchParams.get("mapTags") ?? "").split(",").filter(Boolean);
+  const areaIds = (searchParams.get("mapAreas") ?? "").split(",").filter(Boolean);
 
   function open() {
     setExpanded(true);
@@ -121,10 +121,21 @@ export function MapSearchExpand() {
     return () => document.removeEventListener("click", handleClick);
   }, [expanded]);
 
+  // Prefixed "map"-, distinct from List/Sheet's own ?types=/?tags=/?areas= -- all three
+  // views now share one route/query-string (see app/page.tsx), and Map's filter
+  // selection is deliberately independent of List's/Sheet's, same as before when they
+  // were separate routes.
+  const FILTER_PARAM_KEYS: Record<FilterKind, string> = {
+    types: "mapTypes",
+    tags: "mapTags",
+    areas: "mapAreas",
+  };
+
   function updateIds(key: FilterKind, ids: string[]) {
+    const paramKey = FILTER_PARAM_KEYS[key];
     const params = new URLSearchParams(searchParams.toString());
-    if (ids.length > 0) params.set(key, ids.join(","));
-    else params.delete(key);
+    if (ids.length > 0) params.set(paramKey, ids.join(","));
+    else params.delete(paramKey);
     const qs = params.toString();
     router.replace(qs ? `/?${qs}` : "/");
   }

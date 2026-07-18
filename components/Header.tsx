@@ -2,25 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Gear, List as ListIcon, Plus } from "@phosphor-icons/react";
 import { BottomSheet } from "./BottomSheet";
 import { Settings } from "./Settings";
 import { MapSearchExpand, SearchField } from "./MapSearchExpand";
 import { DestinationSwitcher } from "./DestinationSwitcher";
+import { isViewName, type ViewName } from "@/lib/view";
 
-const TABS = [
-  { href: "/", label: "Map" },
-  { href: "/list", label: "List" },
-  { href: "/sheet", label: "Sheet" },
+const TABS: { view: ViewName; label: string }[] = [
+  { view: "map", label: "Map" },
+  { view: "list", label: "List" },
+  { view: "sheet", label: "Sheet" },
 ];
 
 export function Header({ onAdd }: { onAdd: () => void }) {
-  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const viewParam = searchParams.get("view");
+  const view: ViewName = isViewName(viewParam) ? viewParam : "map";
   const q = searchParams.get("q") ?? "";
-  const destination = searchParams.get("destination") ?? "";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -29,17 +30,22 @@ export function Header({ onAdd }: { onAdd: () => void }) {
     if (value) params.set("q", value);
     else params.delete("q");
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    router.replace(qs ? `/?${qs}` : "/");
   }
 
-  // Unlike q/tags/areas (deliberately view-scoped, see AGENTS.md's UI structure notes),
-  // destination is global app state and must survive every tab switch.
-  function tabHref(href: string) {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (destination) params.set("destination", destination);
+  // Carries the whole current query string forward and only swaps `view` -- every
+  // view's own params are uniquely named now (List's ?listLayout=/?types=, Sheet's
+  // ?sheetTypes=/?sheetSort=, Map's ?mapTypes=, etc., see the collision notes in
+  // ListView/SheetView/MapSearchExpand), so there's nothing left to collide and no
+  // reason to drop them -- Map/List/Sheet stay mounted across a tab switch (see
+  // app/page.tsx), so their own state should survive right along with them instead of
+  // resetting to defaults every time you switch away and back.
+  function tabHref(tabView: ViewName) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tabView === "map") params.delete("view");
+    else params.set("view", tabView);
     const qs = params.toString();
-    return qs ? `${href}?${qs}` : href;
+    return qs ? `/?${qs}` : "/";
   }
 
   return (
@@ -54,7 +60,7 @@ export function Header({ onAdd }: { onAdd: () => void }) {
           <ListIcon size={18} />
         </button>
         <div className="flex flex-1 justify-center">
-          {pathname === "/" ? (
+          {view === "map" ? (
             <MapSearchExpand />
           ) : (
             <SearchField value={q} onChange={handleSearch} placeholder="Search restaurants…" />
@@ -72,11 +78,11 @@ export function Header({ onAdd }: { onAdd: () => void }) {
           <DestinationSwitcher />
           <nav className="flex items-center gap-1 text-sm">
             {TABS.map((tab) => {
-              const active = pathname === tab.href;
+              const active = view === tab.view;
               return (
                 <Link
-                  key={tab.href}
-                  href={tabHref(tab.href)}
+                  key={tab.view}
+                  href={tabHref(tab.view)}
                   className={`rounded-md px-2.5 py-1.5 transition-colors ${
                     active
                       ? "text-black dark:text-white"
@@ -90,7 +96,7 @@ export function Header({ onAdd }: { onAdd: () => void }) {
           </nav>
         </div>
         <div className="w-full max-w-[600px] justify-self-center">
-          {pathname === "/" ? (
+          {view === "map" ? (
             <MapSearchExpand />
           ) : (
             <SearchField value={q} onChange={handleSearch} placeholder="Search restaurants…" />
@@ -126,11 +132,11 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         </div>
         <nav className="mt-4 flex flex-col gap-1 text-sm">
           {TABS.map((tab) => {
-            const active = pathname === tab.href;
+            const active = view === tab.view;
             return (
               <Link
-                key={tab.href}
-                href={tabHref(tab.href)}
+                key={tab.view}
+                href={tabHref(tab.view)}
                 onClick={() => setMenuOpen(false)}
                 className={`rounded-md px-3 py-2.5 transition-colors ${
                   active
