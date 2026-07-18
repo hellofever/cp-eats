@@ -62,8 +62,11 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         </div>
       </div>
 
-      {/* Desktop */}
-      <div className="relative hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-3">
+      {/* Desktop: a 1fr/auto/1fr grid keeps the search bar centered on the header
+          regardless of how wide the nav/destination-switcher or the action buttons are
+          -- a plain flex row centers relative to leftover space between them instead,
+          which drifts off-viewport-center whenever the two side groups' widths differ. */}
+      <div className="hidden md:grid md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-3">
         <div className="flex items-center gap-4">
           <span className="text-lg font-semibold tracking-tight">Commonplaces</span>
           <DestinationSwitcher />
@@ -86,14 +89,14 @@ export function Header({ onAdd }: { onAdd: () => void }) {
             })}
           </nav>
         </div>
-        <div className="md:absolute md:left-1/2 md:top-1/2 md:w-full md:max-w-[600px] md:-translate-x-1/2 md:-translate-y-1/2">
+        <div className="w-full max-w-[600px] justify-self-center">
           {pathname === "/" ? (
             <MapSearchExpand />
           ) : (
             <SearchField value={q} onChange={handleSearch} placeholder="Search restaurants…" />
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-self-end gap-2">
           <button
             onClick={onAdd}
             className="flex items-center gap-1.5 rounded-full bg-[#bd5a1f] px-4 py-2 text-sm font-medium text-white"

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -147,16 +147,33 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const activeDestinationId = destinationParam ?? destinations[0]?.id ?? null;
   const activeDestination = destinations.find((d) => d.id === activeDestinationId) ?? null;
 
-  async function syncRestaurants() {
-    if (!activeDestinationId) return;
+  // Per-destination restaurant cache, so switching back to a destination already
+  // visited this session renders instantly from cache instead of waiting on a fresh
+  // network round trip -- syncRestaurants still runs in the background to refresh it.
+  // A ref (not state) since writing it must never itself trigger a render.
+  const restaurantCacheRef = useRef<Map<string, Restaurant[]>>(new Map());
+  // Lets in-flight async calls (fetch responses, Realtime callbacks) check whether the
+  // destination they were fetching for is still the active one by the time they
+  // resolve, so a slow response for a destination the user already switched away from
+  // can't clobber what's on screen.
+  const activeDestinationIdRef = useRef(activeDestinationId);
+  useEffect(() => {
+    activeDestinationIdRef.current = activeDestinationId;
+  }, [activeDestinationId]);
+
+  async function syncRestaurants(destinationId: string | null = activeDestinationId) {
+    if (!destinationId) return;
     try {
-      const data = await fetchRestaurants(activeDestinationId);
-      setRestaurants(data);
-      setRestaurantsError(false);
+      const data = await fetchRestaurants(destinationId);
+      restaurantCacheRef.current.set(destinationId, data);
+      if (destinationId === activeDestinationIdRef.current) {
+        setRestaurants(data);
+        setRestaurantsError(false);
+      }
       setLastSyncedAt(new Date());
     } catch (err) {
       console.error(err);
-      setRestaurantsError(true);
+      if (destinationId === activeDestinationIdRef.current) setRestaurantsError(true);
     }
   }
 
@@ -191,12 +208,20 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   }
 
   function patchRestaurantCache(restaurant: Restaurant) {
-    setRestaurants((prev) => upsertByIdSortedByName(prev, restaurant));
+    setRestaurants((prev) => {
+      const next = upsertByIdSortedByName(prev, restaurant);
+      if (activeDestinationId) restaurantCacheRef.current.set(activeDestinationId, next);
+      return next;
+    });
   }
 
   function removeRestaurantsCache(ids: string[]) {
     const idSet = new Set(ids);
-    setRestaurants((prev) => prev.filter((r) => !idSet.has(r.id)));
+    setRestaurants((prev) => {
+      const next = prev.filter((r) => !idSet.has(r.id));
+      if (activeDestinationId) restaurantCacheRef.current.set(activeDestinationId, next);
+      return next;
+    });
   }
 
   function patchTagCache(tag: Tag) {
@@ -235,8 +260,12 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!destinationsAndTagsLoaded || !activeDestinationId) return;
+    // Render whatever's cached for this destination immediately (empty if we've never
+    // fetched it) so a destination switch never shows the previous destination's rows
+    // while the fresh fetch below is in flight -- see restaurantCacheRef above.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    syncRestaurants().finally(() => setInitialLoadDone(true));
+    setRestaurants(restaurantCacheRef.current.get(activeDestinationId) ?? []);
+    syncRestaurants(activeDestinationId).finally(() => setInitialLoadDone(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destinationsAndTagsLoaded, activeDestinationId]);
 

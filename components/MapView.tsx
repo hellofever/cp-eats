@@ -19,7 +19,7 @@ const FOCUS_ZOOM = 16;
 // "Mexico") will still look too zoomed-in at this level. Getting that right needs
 // Google's viewport bounds (not just a point), which isn't stored yet -- see the
 // destinations table/Places search route if this becomes worth fixing properly.
-const DESTINATION_ZOOM = 11;
+const DESTINATION_ZOOM = 14;
 // Type-safety fallback only -- AuthenticatedShell (see AppShell.tsx) never renders
 // MapView until activeDestination has resolved, so this never actually surfaces.
 const FALLBACK_CENTER = { lat: -33.8688, lng: 151.2093 };
@@ -42,7 +42,10 @@ function FocusOnPlace({ restaurant }: { restaurant: Restaurant | null }) {
 
 // Recenters when the active destination actually changes (switching from the switcher,
 // not the initial mount -- defaultCenter/defaultZoom on <Map> already placed it there,
-// see MapView below).
+// see MapView below). Jumps instantly rather than animating like the other camera
+// moves in this file -- a destination switch is a full change of city/context, not a
+// pan within the same one, so an eased tween across the intervening ocean/continent
+// just reads as a slow crossfade rather than useful motion.
 function RecenterOnDestinationChange({ destination }: { destination: Destination }) {
   const map = useMap();
   const isFirst = useRef(true);
@@ -52,7 +55,7 @@ function RecenterOnDestinationChange({ destination }: { destination: Destination
       return;
     }
     if (!map || destination.lat == null || destination.lng == null) return;
-    animateCameraTo(map, { lat: destination.lat, lng: destination.lng, zoom: DESTINATION_ZOOM });
+    map.moveCamera({ center: { lat: destination.lat, lng: destination.lng }, zoom: DESTINATION_ZOOM });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, destination.id]);
   return null;
@@ -283,10 +286,10 @@ function LocateMeButton({ onLocated }: { onLocated: (position: { lat: number; ln
   );
 }
 
-// Resets the camera back to the same view FitToAllOnLoad would've landed on: fit to
-// every geo-tagged restaurant, or (if none have a location yet) the destination's own
-// center/zoom -- same fallback FitToAllOnLoad and the <Map>'s defaultCenter/defaultZoom
-// already use elsewhere in this file.
+// Resets the camera to the active destination's own center/zoom -- same coordinates
+// the <Map>'s defaultCenter/defaultZoom and RecenterOnDestinationChange use elsewhere
+// in this file. Falls back to fitting every geo-tagged restaurant only when the
+// destination itself has no coordinates set yet.
 function ResetViewButton({
   restaurants,
   destination,
@@ -298,14 +301,14 @@ function ResetViewButton({
 
   function handleClick() {
     if (!map) return;
+    if (destination?.lat != null && destination?.lng != null) {
+      animateCameraTo(map, { lat: destination.lat, lng: destination.lng, zoom: DESTINATION_ZOOM });
+      return;
+    }
     if (restaurants.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       restaurants.forEach((r) => bounds.extend({ lat: r.lat, lng: r.lng }));
       animateFitBounds(map, bounds);
-      return;
-    }
-    if (destination?.lat != null && destination?.lng != null) {
-      animateCameraTo(map, { lat: destination.lat, lng: destination.lng, zoom: DESTINATION_ZOOM });
     }
   }
 
@@ -357,7 +360,14 @@ export function MapView({
     ? (restaurants.find((r) => r.id === selectedId) ?? null)
     : null;
 
-  const filtered = restaurants.filter((r) =>
+  // Guards against a stale-pin flash right after switching destinations: `restaurants`
+  // still holds the previous destination's rows for the moment between the camera jump
+  // (RecenterOnDestinationChange, driven by activeDestination) and syncRestaurants'
+  // fetch resolving with the new destination's rows.
+  const scoped = activeDestination
+    ? restaurants.filter((r) => r.destination_id === activeDestination.id)
+    : restaurants;
+  const filtered = scoped.filter((r) =>
     matchesFilters(r, { typeIds, tagIds, areaIds, favouritesOnly: false })
   );
   const geoTagged = filtered.filter(isGeoTagged);
