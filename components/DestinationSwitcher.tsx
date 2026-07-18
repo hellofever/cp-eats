@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CaretDown, Check } from "@phosphor-icons/react";
 import { Dropdown } from "./Dropdown";
-import { BottomSheet } from "./BottomSheet";
+import { BottomSheet, ModalHeader } from "./BottomSheet";
 import { PlaceSearchPicker, type PlacePickResult } from "./PlaceSearchPicker";
 import { useRestaurantUI } from "./AppShell";
 import { createDestination, type Destination } from "@/lib/destinations";
@@ -54,12 +54,12 @@ export function DestinationSwitcher({ beforeOpenCreate }: { beforeOpenCreate?: (
                 onClick={() => switchTo(d.id)}
                 className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm ${
                   isActive
-                    ? "bg-black/[.04] font-medium text-[#bd5a1f] dark:bg-white/[.08]"
+                    ? "bg-black/[.04] font-medium text-red-500 dark:bg-white/[.08]"
                     : "hover:bg-black/[.03] dark:hover:bg-white/[.05]"
                 }`}
               >
                 {d.name}
-                {isActive && <Check size={14} weight="bold" className="text-[#bd5a1f]" />}
+                {isActive && <Check size={14} weight="bold" className="text-red-500" />}
               </button>
             );
           })}
@@ -144,7 +144,7 @@ function NewDestinationForm({
   if (picked) {
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="pr-8 text-lg font-semibold">New destination</h2>
+        <ModalHeader title={<h2 className="text-lg">New destination</h2>} onClose={onCancel} />
         <p className="text-sm text-black/60 dark:text-white/60">{picked.address}</p>
         <label className="flex flex-col gap-1 text-sm">
           Name
@@ -170,7 +170,7 @@ function NewDestinationForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="pr-8 text-lg font-semibold">New destination</h2>
+      <ModalHeader title={<h2 className="text-lg">New destination</h2>} onClose={onCancel} />
       <PlaceSearchPicker placeholder="City or country, e.g. Mexico City, Mexico" onPick={pick} />
       <button onClick={onCancel} className="w-fit text-sm text-black/60 underline dark:text-white/60">
         Cancel

@@ -5,6 +5,7 @@ import { MapPin, Star } from "@phosphor-icons/react";
 import { PHOSPHOR_ICON_MAP, tagColor, tagIcon } from "@/lib/tags";
 import { setFavourite } from "@/lib/restaurants";
 import { useRestaurantUI } from "./AppShell";
+import { ModalHeader } from "./BottomSheet";
 import type { OpeningPeriod, Restaurant } from "@/lib/types";
 
 // Indexed by Google's day-of-week convention (0 = Sunday), but displayed Monday-first.
@@ -46,9 +47,11 @@ function hoursByDay(periods: OpeningPeriod[]): { day: string; ranges: string[] }
 export function RestaurantDetailView({
   restaurant,
   onEdit,
+  onClose,
 }: {
   restaurant: Restaurant;
   onEdit: () => void;
+  onClose: () => void;
 }) {
   const directionsUrl =
     restaurant.lat != null && restaurant.lng != null
@@ -81,22 +84,27 @@ export function RestaurantDetailView({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-start gap-2 pr-8">
-        <button
-          type="button"
-          onClick={handleToggleFavourite}
-          disabled={toggling}
-          aria-label={favourite ? "Remove from favourites" : "Add to favourites"}
-          className="mt-1 shrink-0 disabled:opacity-50"
-        >
-          <Star
-            size={18}
-            weight={favourite ? "fill" : "regular"}
-            className={favourite ? "text-[#bd5a1f]" : "text-black/30 dark:text-white/30"}
-          />
-        </button>
-        <h2 className="text-lg font-bold">{restaurant.name}</h2>
-      </div>
+      <ModalHeader
+        title={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleToggleFavourite}
+              disabled={toggling}
+              aria-label={favourite ? "Remove from favourites" : "Add to favourites"}
+              className="shrink-0 disabled:opacity-50"
+            >
+              <Star
+                size={18}
+                weight={favourite ? "fill" : "regular"}
+                className={favourite ? "text-red-500" : "text-black/30 dark:text-white/30"}
+              />
+            </button>
+            <h2 className="min-w-0 truncate text-lg">{restaurant.name}</h2>
+          </div>
+        }
+        onClose={onClose}
+      />
 
       <div className="flex flex-wrap items-center gap-1.5">
         {restaurant.types.map((t) => {
@@ -166,7 +174,7 @@ export function RestaurantDetailView({
           href={websiteHref}
           target="_blank"
           rel="noreferrer"
-          className="truncate text-sm text-[#bd5a1f] underline"
+          className="truncate text-sm text-red-500 underline"
         >
           {websiteHref}
         </a>

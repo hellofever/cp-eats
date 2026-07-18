@@ -31,9 +31,8 @@ export function Settings() {
   return (
     <div className="flex gap-6 md:h-full">
       <div
-        className={`${drilledIn ? "hidden md:block" : "block"} w-full shrink-0 md:h-full md:w-40 md:overflow-y-auto`}
+        className={`${drilledIn ? "hidden md:block" : "block"} w-full shrink-0 rounded-xl bg-black/[.03] p-2 md:h-full md:w-40 md:overflow-y-auto dark:bg-white/[.04]`}
       >
-        <h2 className="px-1 pb-3 text-lg font-semibold md:hidden">Settings</h2>
         <nav className="flex flex-col gap-0.5">
           {CATEGORIES.map(({ id, label, icon: Icon }) => {
             const active = category === id;
@@ -44,8 +43,8 @@ export function Settings() {
                 onClick={() => selectCategory(id)}
                 className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                   active
-                    ? "bg-black/[.04] text-black dark:bg-white/[.08] dark:text-white"
-                    : "text-black/60 hover:bg-black/[.02] dark:text-white/60 dark:hover:bg-white/[.04]"
+                    ? "bg-white text-black shadow-sm dark:bg-white/10 dark:text-white"
+                    : "text-black/60 hover:bg-black/[.03] dark:text-white/60 dark:hover:bg-white/[.05]"
                 }`}
               >
                 <Icon size={16} weight={active ? "fill" : "regular"} />

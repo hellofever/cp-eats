@@ -55,7 +55,7 @@ export async function createTag(
 
 export async function updateTag(
   id: string,
-  updates: Partial<{ color: TypeHue; icon: string | null }>
+  updates: Partial<{ name: string; color: TypeHue; icon: string | null }>
 ): Promise<Tag> {
   const { data, error } = await supabase.from("tags").update(updates).eq("id", id).select().single();
 

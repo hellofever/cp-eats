@@ -15,7 +15,7 @@ import { geocodeAddress } from "@/lib/geocode";
 import { matchesQuery } from "@/lib/search";
 import { fetchSheetColumnPrefs, saveSheetColumnPrefs } from "@/lib/sheetPrefs";
 import { useRestaurantUI } from "@/components/AppShell";
-import { BottomSheet } from "@/components/BottomSheet";
+import { BottomSheet, ModalHeader } from "@/components/BottomSheet";
 import { Dropdown, dropdownTriggerClass } from "@/components/Dropdown";
 import { ListFilters, matchesFilters, type FilterState } from "@/components/ListFilters";
 import {
@@ -521,7 +521,7 @@ export function SheetView() {
         );
       case "name":
         return (
-          <EditableTextCell value={r.name} onCommit={(v) => commitCell(r, "name", v)} className="font-bold" />
+          <EditableTextCell value={r.name} onCommit={(v) => commitCell(r, "name", v)} className="font-medium" />
         );
       case "type":
         return (
@@ -629,7 +629,7 @@ export function SheetView() {
         <p className="text-sm text-black/50 dark:text-white/50">There are no places added.</p>
         <button
           onClick={() => openAddInline("", (saved) => patchRestaurantCache(saved))}
-          className="rounded-full bg-[#bd5a1f] px-4 py-2 text-sm font-medium text-white"
+          className="rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white"
         >
           Add a place
         </button>
@@ -694,7 +694,7 @@ export function SheetView() {
                   title="Keep column widths proportional when the window is resized"
                   className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
                     autoFit
-                      ? "border-[#bd5a1f] bg-[#bd5a1f] text-white"
+                      ? "border-red-500 bg-red-500 text-white"
                       : "border-black/10 text-black/70 dark:border-white/10 dark:text-white/70"
                   }`}
                 >
@@ -728,7 +728,7 @@ export function SheetView() {
 
       <div className="flex-1 overflow-auto p-4 pt-0">
         <table
-          className="border-collapse text-sm"
+          className="border-collapse font-mono text-sm"
           style={{ tableLayout: "fixed", width: autoFit ? "100%" : totalTableWidth }}
         >
           <colgroup>
@@ -849,7 +849,7 @@ export function SheetView() {
                         })
                       }
                       aria-label="Add restaurant"
-                      className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#bd5a1f] text-white"
+                      className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-red-500 text-white"
                     >
                       <Plus size={14} weight="bold" />
                     </button>
@@ -872,14 +872,25 @@ export function SheetView() {
 
       <BottomSheet open={tagEditor !== null} onClose={closeTagEditor}>
         {tagEditor && (
-          <TagPicker
-            kind={tagEditor.kind}
-            label={tagEditor.kind === "type" ? "Type" : tagEditor.kind === "tags" ? "Tags" : "Area"}
-            multiple
-            maxSelections={tagEditor.kind === "type" ? 3 : undefined}
-            selectedIds={tagEditor.selectedIds}
-            onChange={handleTagEditorChange}
-          />
+          <>
+            <ModalHeader
+              title={
+                <h2 className="text-lg">
+                  {tagEditor.kind === "type" ? "Type" : tagEditor.kind === "tags" ? "Tags" : "Area"}
+                </h2>
+              }
+              onClose={closeTagEditor}
+              className="mb-3"
+            />
+            <TagPicker
+              kind={tagEditor.kind}
+              label={tagEditor.kind === "type" ? "Type" : tagEditor.kind === "tags" ? "Tags" : "Area"}
+              multiple
+              maxSelections={tagEditor.kind === "type" ? 3 : undefined}
+              selectedIds={tagEditor.selectedIds}
+              onChange={handleTagEditorChange}
+            />
+          </>
         )}
       </BottomSheet>
 

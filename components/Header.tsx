@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Gear, List as ListIcon, Plus } from "@phosphor-icons/react";
-import { BottomSheet } from "./BottomSheet";
+import { BottomSheet, ModalHeader } from "./BottomSheet";
+import { Logo } from "./Logo";
 import { Settings } from "./Settings";
 import { MapSearchExpand, SearchField } from "./MapSearchExpand";
 import { DestinationSwitcher } from "./DestinationSwitcher";
@@ -74,7 +75,7 @@ export function Header({ onAdd }: { onAdd: () => void }) {
           which drifts off-viewport-center whenever the two side groups' widths differ. */}
       <div className="hidden md:grid md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-3">
         <div className="flex items-center gap-4">
-          <span className="text-lg font-semibold tracking-tight">Commonplaces</span>
+          <Logo className="h-[13px] w-auto" />
           <DestinationSwitcher />
           <nav className="flex items-center gap-1 text-sm">
             {TABS.map((tab) => {
@@ -105,7 +106,7 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         <div className="flex items-center justify-self-end gap-2">
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 rounded-full bg-[#bd5a1f] px-4 py-2 text-sm font-medium text-white"
+            className="flex items-center gap-1.5 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white"
           >
             <Plus weight="bold" size={16} />
             Add Place
@@ -126,10 +127,15 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         widthClassName="md:max-w-md"
         heightClassName="h-screen! md:h-fit!"
       >
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Commonplaces</h2>
-          <DestinationSwitcher beforeOpenCreate={() => setMenuOpen(false)} />
-        </div>
+        <ModalHeader
+          title={
+            <div className="flex items-center gap-3">
+              <Logo className="h-[13px] w-auto" />
+              <DestinationSwitcher beforeOpenCreate={() => setMenuOpen(false)} />
+            </div>
+          }
+          onClose={() => setMenuOpen(false)}
+        />
         <nav className="mt-4 flex flex-col gap-1 text-sm">
           {TABS.map((tab) => {
             const active = view === tab.view;
@@ -179,8 +185,12 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         widthClassName="sm:max-w-2xl"
         heightClassName="h-screen! sm:h-[600px]!"
       >
-        <h2 className="hidden text-lg font-semibold md:block">Settings</h2>
-        <div className="flex min-h-0 flex-1 flex-col md:mt-4">
+        <ModalHeader
+          title={<h2 className="text-lg">Settings</h2>}
+          onClose={() => setSettingsOpen(false)}
+          className="mb-4"
+        />
+        <div className="flex min-h-0 flex-1 flex-col">
           <Settings />
         </div>
       </BottomSheet>

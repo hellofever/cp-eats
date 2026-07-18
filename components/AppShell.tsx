@@ -344,11 +344,18 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
             key={sheet.restaurant.id}
             restaurant={sheet.restaurant}
             onEdit={() => setSheet({ kind: "edit", restaurant: sheet.restaurant })}
+            onClose={() => setSheet(null)}
           />
         )}
-        {sheet?.kind === "add" && <AddRestaurantFlow onSaved={handleSaved} />}
+        {sheet?.kind === "add" && (
+          <AddRestaurantFlow onSaved={handleSaved} onClose={() => setSheet(null)} />
+        )}
         {sheet?.kind === "edit" && (
-          <AddRestaurantFlow editing={sheet.restaurant} onSaved={handleSaved} />
+          <AddRestaurantFlow
+            editing={sheet.restaurant}
+            onSaved={handleSaved}
+            onClose={() => setSheet(null)}
+          />
         )}
         {sheet?.kind === "add-inline" && (
           <AddRestaurantFlow
@@ -357,6 +364,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
               setSheet(null);
               sheet.onSaved(r);
             }}
+            onClose={() => setSheet(null)}
           />
         )}
       </BottomSheet>

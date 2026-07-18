@@ -18,7 +18,7 @@ import { fetchFirstPhotoUrls } from "@/lib/photos";
 import { PHOSPHOR_ICON_MAP, tagColor, tagIcon, tagMapColor } from "@/lib/tags";
 import { matchesQuery } from "@/lib/search";
 import { useRestaurantUI } from "@/components/AppShell";
-import { BottomSheet } from "@/components/BottomSheet";
+import { BottomSheet, ModalHeader } from "@/components/BottomSheet";
 import { Dropdown, dropdownTriggerClass } from "@/components/Dropdown";
 import { ListFilters, matchesFilters, type FilterState } from "@/components/ListFilters";
 import { DEFAULT_SORT, SORT_OPTIONS, groupByArea, isSortKey, sortRestaurants } from "@/lib/sort";
@@ -78,9 +78,9 @@ function RestaurantRow({
         <Icon size={14} weight="bold" color="#ffffff" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold">
+        <span className="font-heading block text-sm uppercase">
           {r.is_favourite && (
-            <Star size={14} weight="fill" className="mr-1 inline-block align-[-2px] text-[#bd5a1f]" />
+            <Star size={14} weight="fill" className="mr-1 inline-block align-[-2px] text-red-500" />
           )}
           {r.name}
         </span>
@@ -121,9 +121,9 @@ function RestaurantCard({
         )}
       </div>
       <span className="flex flex-col gap-1 p-3">
-        <span className="line-clamp-1 text-sm font-bold">
+        <span className="font-heading line-clamp-1 text-sm uppercase">
           {r.is_favourite && (
-            <Star size={14} weight="fill" className="mr-1 inline-block align-[-2px] text-[#bd5a1f]" />
+            <Star size={14} weight="fill" className="mr-1 inline-block align-[-2px] text-red-500" />
           )}
           {r.name}
         </span>
@@ -281,7 +281,7 @@ export function ListView() {
         <p className="text-sm text-black/50 dark:text-white/50">There are no places added.</p>
         <button
           onClick={openAdd}
-          className="rounded-full bg-[#bd5a1f] px-4 py-2 text-sm font-medium text-white"
+          className="rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white"
         >
           Add a place
         </button>
@@ -361,7 +361,7 @@ export function ListView() {
         <div
           className={
             displayMode === "card"
-              ? "mx-auto grid w-full max-w-[1920px] grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+              ? "mx-auto grid w-full max-w-[1920px] grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
               : "mx-auto flex w-full max-w-[800px] flex-col gap-2"
           }
         >
@@ -374,12 +374,12 @@ export function ListView() {
                   }
                 >
                   <h3
-                    className={`px-1 text-xs font-semibold uppercase tracking-wide text-black/50 dark:text-white/50 ${i === 0 ? "" : "pt-3"}`}
+                    className={`px-1 text-xs uppercase tracking-wide text-black/50 dark:text-white/50 ${i === 0 ? "" : "pt-3"}`}
                   >
                     {group.areaName}
                   </h3>
                   {displayMode === "card" ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                       {group.restaurants.map((r) => (
                         <RestaurantCard
                           key={r.id}
@@ -460,7 +460,11 @@ export function ListView() {
       )}
 
       <BottomSheet open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
-        <h2 className="mb-2 pr-6 text-lg font-semibold">Delete {deleteTarget?.name}?</h2>
+        <ModalHeader
+          title={<h2 className="text-lg">Delete {deleteTarget?.name}?</h2>}
+          onClose={() => setDeleteTarget(null)}
+          className="mb-2"
+        />
         <p className="mb-4 text-sm text-black/60 dark:text-white/60">This can&apos;t be undone.</p>
         <div className="flex gap-2">
           <button

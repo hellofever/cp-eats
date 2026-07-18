@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RestaurantForm } from "./RestaurantForm";
 import { useRestaurantUI } from "./AppShell";
+import { ModalHeader } from "./BottomSheet";
 import { suggestTagName } from "@/lib/tags";
 import { findByPlaceId, insertRestaurant, updateRestaurant } from "@/lib/restaurants";
 import { linkPendingPhotos } from "@/lib/photos";
@@ -39,10 +40,12 @@ export function AddRestaurantFlow({
   editing,
   onSaved,
   initialQuery,
+  onClose,
 }: {
   editing?: Restaurant;
   onSaved: (restaurant: Restaurant) => void;
   initialQuery?: string;
+  onClose: () => void;
 }) {
   const { activeDestinationId } = useRestaurantUI();
   const [step, setStep] = useState<"search" | "results" | "form">(editing ? "form" : "search");
@@ -126,7 +129,10 @@ export function AddRestaurantFlow({
   if (duplicate) {
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="pr-8 text-lg font-semibold">Already on your list</h2>
+        <ModalHeader
+          title={<h2 className="text-lg">Already on your list</h2>}
+          onClose={onClose}
+        />
         <p className="text-sm text-black/70 dark:text-white/70">
           <b>{duplicate.name}</b> is already saved.
         </p>
@@ -147,9 +153,13 @@ export function AddRestaurantFlow({
   if (step === "form") {
     return (
       <>
-        <h2 className="mb-3 pr-8 text-lg font-semibold">
-          {editing ? "Edit restaurant" : "Add restaurant"}
-        </h2>
+        <ModalHeader
+          title={
+            <h2 className="text-lg">{editing ? "Edit restaurant" : "Add restaurant"}</h2>
+          }
+          onClose={onClose}
+          className="mb-3"
+        />
         <RestaurantForm
           initial={formInitial}
           restaurantId={editing?.id}
@@ -162,7 +172,7 @@ export function AddRestaurantFlow({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="pr-8 text-lg font-semibold">Add restaurant</h2>
+      <ModalHeader title={<h2 className="text-lg">Add restaurant</h2>} onClose={onClose} />
       <form onSubmit={runSearch} className="flex gap-2">
         <input
           autoFocus

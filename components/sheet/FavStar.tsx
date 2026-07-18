@@ -22,7 +22,7 @@ export function FavStar({
       <Star
         size={18}
         weight={active ? "fill" : "regular"}
-        className={active ? "text-[#bd5a1f]" : "text-black/30 dark:text-white/30"}
+        className={active ? "text-red-500" : "text-black/30 dark:text-white/30"}
       />
     </button>
   );

@@ -29,7 +29,7 @@ export function ThemeToggle() {
               onClick={() => setTheme(value)}
               className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium ${
                 active
-                  ? "border-[#bd5a1f] bg-[#bd5a1f] text-white"
+                  ? "border-red-500 bg-red-500 text-white"
                   : "border-black/15 text-black/70 dark:border-white/15 dark:text-white/70"
               }`}
             >

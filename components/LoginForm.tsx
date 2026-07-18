@@ -26,7 +26,7 @@ export function LoginForm() {
   return (
     <div className="flex flex-1 items-center justify-center p-6">
       <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-3">
-        <h1 className="text-lg font-semibold">Sign in</h1>
+        <h1 className="text-lg">Sign in</h1>
         <input
           type="email"
           required

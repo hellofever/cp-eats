@@ -323,11 +323,11 @@ function ResetViewButton({
   );
 }
 
-// The orange "you are here" dot dropped at the last located position.
+// The "you are here" dot dropped at the last located position.
 function UserLocationMarker({ position }: { position: { lat: number; lng: number } }) {
   return (
     <AdvancedMarker position={position}>
-      <div className="h-4 w-4 rounded-full border-2 border-white bg-orange-500 shadow" />
+      <div className="h-4 w-4 rounded-full border-2 border-white bg-red-500 shadow" />
     </AdvancedMarker>
   );
 }

@@ -96,7 +96,7 @@ export function ListFilters({
               onClick={() => onChange({ ...value, favouritesOnly: !value.favouritesOnly })}
               className={`w-fit rounded-full border px-2.5 py-1 text-xs font-medium ${
                 value.favouritesOnly
-                  ? "border-[#bd5a1f] bg-[#bd5a1f] text-white"
+                  ? "border-red-500 bg-red-500 text-white"
                   : "border-black/15 text-black/70 dark:border-white/15 dark:text-white/70"
               }`}
             >

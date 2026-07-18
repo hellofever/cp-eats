@@ -46,6 +46,9 @@ export function TagManagerSection({
 
   const [expanded, setExpanded] = useState<{ id: string; field: "color" | "icon" } | null>(null);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
   const [pendingDelete, setPendingDelete] = useState<Tag | null>(null);
   const [pendingDeleteCount, setPendingDeleteCount] = useState<number | null>(null);
 
@@ -73,6 +76,22 @@ export function TagManagerSection({
       apply: () => patchTagCache({ ...tag, icon }),
       revert: () => patchTagCache(tag),
       write: () => updateTag(tag.id, { icon }),
+    });
+  }
+
+  function startEditName(tag: Tag) {
+    setEditingId(tag.id);
+    setEditValue(tag.name);
+  }
+
+  function commitEditName(tag: Tag, finalValue: string) {
+    setEditingId(null);
+    const trimmed = finalValue.trim();
+    if (!trimmed || trimmed === tag.name) return;
+    run(`${tag.id}:name`, {
+      apply: () => patchTagCache({ ...tag, name: trimmed }),
+      revert: () => patchTagCache(tag),
+      write: () => updateTag(tag.id, { name: trimmed }),
     });
   }
 
@@ -119,7 +138,7 @@ export function TagManagerSection({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <h3 className="px-2 text-xs font-semibold tracking-wide text-black/40 uppercase dark:text-white/40">
+      <h3 className="px-2 text-xs tracking-wide text-black/40 uppercase dark:text-white/40">
         {label}
       </h3>
 
@@ -162,7 +181,37 @@ export function TagManagerSection({
                     style={{ background: tagColor(tag) }}
                   />
                 )}
-                <span className="flex-1 truncate text-sm">{tag.name}</span>
+                {editingId === tag.id ? (
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => commitEditName(tag, editValue)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitEditName(tag, editValue);
+                      } else if (e.key === "Escape") {
+                        setEditingId(null);
+                      }
+                    }}
+                    className={`min-w-0 flex-1 rounded border bg-white px-1.5 py-0.5 text-sm outline-none dark:bg-black ${
+                      isError(`${tag.id}:name`)
+                        ? "border-red-500 ring-2 ring-red-500"
+                        : "border-black/20 dark:border-white/20"
+                    }`}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => startEditName(tag)}
+                    className={`min-w-0 flex-1 truncate rounded px-1.5 py-0.5 text-left text-sm ${
+                      isError(`${tag.id}:name`) ? "ring-2 ring-red-500" : ""
+                    }`}
+                  >
+                    {tag.name}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => requestDelete(tag)}

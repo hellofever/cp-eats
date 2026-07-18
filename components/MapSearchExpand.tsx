@@ -268,7 +268,7 @@ export function MapSearchExpand() {
               <div className="border-t border-black/10 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:border-white/10">
                 <button
                   onClick={close}
-                  className="w-full rounded-full bg-[#bd5a1f] px-4 py-3 text-sm font-medium text-white"
+                  className="w-full rounded-full bg-red-500 px-4 py-3 text-sm font-medium text-white"
                 >
                   Search
                 </button>

@@ -1,18 +1,29 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Instrument_Sans } from "next/font/google";
+import { DM_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Suspense } from "react";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 
-const instrumentSans = Instrument_Sans({
-  variable: "--font-instrument-sans",
-  subsets: ["latin"],
+const generalSans = localFont({
+  src: [
+    { path: "../public/fonts/GeneralSans-Variable.woff2", weight: "200 700", style: "normal" },
+    { path: "../public/fonts/GeneralSans-VariableItalic.woff2", weight: "200 700", style: "italic" },
+  ],
+  variable: "--font-general-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const dmMono = DM_Mono({
+  variable: "--font-dm-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
+});
+
+const clashDisplay = localFont({
+  src: "../public/fonts/ClashDisplay-Semibold.woff2",
+  variable: "--font-clash-display",
+  weight: "600",
 });
 
 export const metadata: Metadata = {
@@ -28,7 +39,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrumentSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${generalSans.variable} ${dmMono.variable} ${clashDisplay.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex h-full flex-col">

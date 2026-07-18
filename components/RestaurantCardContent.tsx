@@ -56,10 +56,10 @@ export function RestaurantCardContent({
           <Star
             size={16}
             weight={favourite ? "fill" : "regular"}
-            className={favourite ? "text-[#bd5a1f]" : "text-black/30 dark:text-white/30"}
+            className={favourite ? "text-red-500" : "text-black/30 dark:text-white/30"}
           />
         </button>
-        <h3 className="min-w-0 flex-1 text-sm font-bold">{restaurant.name}</h3>
+        <h3 className="min-w-0 flex-1 text-sm">{restaurant.name}</h3>
         {onClose && (
           <button
             type="button"
