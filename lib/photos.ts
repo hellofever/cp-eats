@@ -65,6 +65,42 @@ export async function deletePhotoObject(storagePath: string): Promise<void> {
   if (error) throw error;
 }
 
+// Batch version of fetchRestaurantPhotos for grids that just need a thumbnail per
+// restaurant (List view's Card display) -- one query for the earliest photo row per
+// restaurant plus one signed-URL batch call, instead of N round trips.
+export async function fetchFirstPhotoUrls(restaurantIds: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (restaurantIds.length === 0) return result;
+
+  const { data, error } = await supabase
+    .from("restaurant_photos")
+    .select("restaurant_id, storage_path, created_at")
+    .in("restaurant_id", restaurantIds)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  const firstPathByRestaurant = new Map<string, string>();
+  for (const row of data as { restaurant_id: string; storage_path: string }[]) {
+    if (!firstPathByRestaurant.has(row.restaurant_id)) {
+      firstPathByRestaurant.set(row.restaurant_id, row.storage_path);
+    }
+  }
+  if (firstPathByRestaurant.size === 0) return result;
+
+  const paths = [...firstPathByRestaurant.values()];
+  const { data: signed, error: signError } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+  if (signError) throw signError;
+
+  const urlByPath = new Map(signed.map((s) => [s.path, s.signedUrl]));
+  for (const [restaurantId, path] of firstPathByRestaurant) {
+    const url = urlByPath.get(path);
+    if (url) result.set(restaurantId, url);
+  }
+  return result;
+}
+
 export async function deleteRestaurantPhoto(id: string): Promise<void> {
   const { data: photo, error: fetchError } = await supabase
     .from("restaurant_photos")

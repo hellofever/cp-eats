@@ -61,6 +61,14 @@ interface RestaurantUIContextValue {
   // round trip back to Supabase just to see their own effect reflected everywhere.
   patchRestaurantCache: (restaurant: Restaurant) => void;
   removeRestaurantsCache: (ids: string[]) => void;
+  // A fresh object reference every time patchRestaurantCache runs (add, edit, or a
+  // favourite toggle) -- lets a view with its own derived per-restaurant cache (e.g.
+  // List Card display's photo thumbnails, which aren't part of the Restaurant type)
+  // refresh just that one restaurant instead of waiting on the next full reload. Plain
+  // `restaurants` array identity isn't enough for this: patching an already-cached
+  // restaurant (an edit, not an add) produces a new array but the same id set, so a
+  // consumer keyed on ids alone would never notice the patch.
+  lastPatchedRestaurant: Restaurant | null;
   patchTagCache: (tag: Tag) => void;
   removeTagFromCache: (kind: TagKind, id: string) => void;
   patchDestinationCache: (destination: Destination) => void;
@@ -129,6 +137,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [lastPatchedRestaurant, setLastPatchedRestaurant] = useState<Restaurant | null>(null);
   const [types, setTypes] = useState<Tag[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [areas, setAreas] = useState<Tag[]>([]);
@@ -213,6 +222,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
       if (activeDestinationId) restaurantCacheRef.current.set(activeDestinationId, next);
       return next;
     });
+    setLastPatchedRestaurant(restaurant);
   }
 
   function removeRestaurantsCache(ids: string[]) {
@@ -302,6 +312,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
         openAdd: () => setSheet({ kind: "add" }),
         openAddInline: (initialQuery, onSaved) => setSheet({ kind: "add-inline", initialQuery, onSaved }),
         restaurants,
+        lastPatchedRestaurant,
         types,
         tags,
         areas,
