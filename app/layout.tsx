@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Our Places",
+  title: "Commonplaces",
   description: "Our favourite restaurants, on a map.",
 };
 

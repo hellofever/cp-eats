@@ -9,7 +9,7 @@ import { PlaceSearchPicker, type PlacePickResult } from "./PlaceSearchPicker";
 import { useRestaurantUI } from "./AppShell";
 import { createDestination, type Destination } from "@/lib/destinations";
 
-// The dropdown next to "CP Places" that scopes the whole app to one destination --
+// The dropdown next to "Commonplaces" that scopes the whole app to one destination --
 // switching just points ?destination= at a different id (AppShell's context refetches
 // restaurants scoped to it), no page reload. `beforeOpenCreate` lets the mobile menu
 // close itself first (same pattern as its "Add Place"/"Settings" buttons) so the

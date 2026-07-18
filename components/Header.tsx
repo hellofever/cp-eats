@@ -65,7 +65,7 @@ export function Header({ onAdd }: { onAdd: () => void }) {
       {/* Desktop */}
       <div className="relative hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-3">
         <div className="flex items-center gap-4">
-          <span className="text-lg font-semibold tracking-tight">CP Places</span>
+          <span className="text-lg font-semibold tracking-tight">Commonplaces</span>
           <DestinationSwitcher />
           <nav className="flex items-center gap-1 text-sm">
             {TABS.map((tab) => {
@@ -118,7 +118,7 @@ export function Header({ onAdd }: { onAdd: () => void }) {
         heightClassName="h-screen! md:h-fit!"
       >
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">CP Places</h2>
+          <h2 className="text-lg font-semibold">Commonplaces</h2>
           <DestinationSwitcher beforeOpenCreate={() => setMenuOpen(false)} />
         </div>
         <nav className="mt-4 flex flex-col gap-1 text-sm">

@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Our Places
+# Commonplaces
 
 A shared map of favourite restaurants for a small group (<5 people). Tap a pin for
 details, browse as a list, or maintain everything in a spreadsheet-style grid. Add a
