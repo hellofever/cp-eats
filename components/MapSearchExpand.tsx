@@ -144,8 +144,22 @@ export function MapSearchExpand() {
       if (overlayRef.current?.contains(target)) return;
       close();
     }
-    document.addEventListener("click", handleClick);
-    return () => document.removeEventListener("click", handleClick);
+    // Deferred via setTimeout, not added synchronously: the same tap that just opened
+    // this (via onFocus) still has a trailing compatibility "click" event in flight --
+    // touch devices synthesize mousedown/mouseup/click after touchend, and by the time
+    // it fires the DOM has already mutated (this overlay just mounted), so the click's
+    // elementFromPoint hit-test can land somewhere that's neither the container nor the
+    // overlay (confirmed via a real touch-emulated tap: document.body). An
+    // immediately-attached listener catches that trailing click and closes the panel in
+    // the same gesture that opened it -- looking exactly like the tap did nothing.
+    // Registering next tick lets that stray click pass before this listener exists.
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClick);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClick);
+    };
   }, [expanded]);
 
   // Prefixed "map"-, distinct from List/Sheet's own ?types=/?tags=/?areas= -- all three
