@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
 import { ArrowsHorizontal, Compass, GpsFix } from "@phosphor-icons/react";
 import { PHOSPHOR_ICON_MAP, tagIcon, tagMapColor } from "@/lib/tags";
@@ -150,7 +150,13 @@ function isGeoTagged(r: Restaurant): r is GeoRestaurant {
   return r.lat != null && r.lng != null;
 }
 
-function RestaurantMarker({
+// Memoized so a MapView re-render (e.g. selecting a different pin, or any other state
+// change) doesn't force every other marker to re-render too -- with dozens of pins this
+// otherwise redoes real render work for markers whose own props never changed. Relies
+// on MapView passing a stable `onSelect` (useCallback) and restaurant objects that are
+// only ever replaced, not mutated in place (already true -- see AppShell's cache
+// patchers), so the default shallow prop comparison is safe here.
+const RestaurantMarker = memo(function RestaurantMarker({
   restaurant,
   isSelected,
   onSelect,
@@ -192,7 +198,7 @@ function RestaurantMarker({
       </div>
     </AdvancedMarker>
   );
-}
+});
 
 // Stays anchored over the map itself (not the drawer) so its position doesn't drift
 // when the drawer occupies the space beside it on desktop.
@@ -434,14 +440,30 @@ export function MapView({
   // still holds the previous destination's rows for the moment between the camera jump
   // (RecenterOnDestinationChange, driven by activeDestination) and syncRestaurants'
   // fetch resolving with the new destination's rows.
-  const scoped = activeDestination
-    ? restaurants.filter((r) => r.destination_id === activeDestination.id)
-    : restaurants;
-  const filtered = scoped.filter((r) =>
-    matchesFilters(r, { typeIds, tagIds, areaIds, favouritesOnly: false })
+  //
+  // Memoized (rather than recomputed inline every render) so the derived arrays keep a
+  // stable identity across unrelated MapView re-renders (e.g. selecting a pin) -- that
+  // stability is what lets RestaurantMarker's React.memo actually skip re-rendering
+  // markers whose own data hasn't changed. typeIds/tagIds/areaIds arrive as freshly
+  // split arrays from app/page.tsx on every render regardless of content, so the actual
+  // dependency is their joined contents, not array identity (same pattern as
+  // FitToFilter's `key` below).
+  const typeKey = typeIds.join(",");
+  const tagKey = tagIds.join(",");
+  const areaKey = areaIds.join(",");
+  const scoped = useMemo(
+    () => (activeDestination ? restaurants.filter((r) => r.destination_id === activeDestination.id) : restaurants),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [restaurants, activeDestination?.id]
   );
-  const geoTagged = filtered.filter(isGeoTagged);
+  const filtered = useMemo(
+    () => scoped.filter((r) => matchesFilters(r, { typeIds, tagIds, areaIds, favouritesOnly: false })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scoped, typeKey, tagKey, areaKey]
+  );
+  const geoTagged = useMemo(() => filtered.filter(isGeoTagged), [filtered]);
   const filtersActive = typeIds.length > 0 || tagIds.length > 0 || areaIds.length > 0;
+  const handleSelectMarker = useCallback((restaurant: Restaurant) => setSelectedId(restaurant.id), []);
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
@@ -505,7 +527,7 @@ export function MapView({
                 key={r.id}
                 restaurant={r}
                 isSelected={r.id === selectedId}
-                onSelect={(restaurant) => setSelectedId(restaurant.id)}
+                onSelect={handleSelectMarker}
               />
             ))}
             {userLocation && <UserLocationMarker position={userLocation} />}
