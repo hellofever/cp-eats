@@ -97,11 +97,13 @@ function RestaurantRow({
 function RestaurantCard({
   restaurant: r,
   photoUrl,
+  onPhotoError,
   onClick,
   onContextMenu,
 }: {
   restaurant: Restaurant;
   photoUrl: string | undefined;
+  onPhotoError: () => void;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }) {
@@ -113,7 +115,7 @@ function RestaurantCard({
     >
       <div className="aspect-[4/3] w-full flex-none overflow-hidden bg-black/5 dark:bg-white/10">
         {photoUrl ? (
-          <FadeImage src={photoUrl} className="h-full w-full" />
+          <FadeImage src={photoUrl} className="h-full w-full" onError={onPhotoError} />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <ImageSquare size={28} weight="light" className="text-black/20 dark:text-white/20" />
@@ -202,6 +204,23 @@ export function ListView() {
       })
       .catch((err) => console.error(err));
   }, [displayMode, lastPatchedRestaurant]);
+
+  // Passed to FadeImage as onError: a cached signed URL that fails to load is refreshed
+  // once (see FadeImage's own retry guard) rather than left broken until the next
+  // unrelated refetch.
+  function handlePhotoError(id: string) {
+    fetchFirstPhotoUrls([id], { force: true })
+      .then((map) => {
+        setPhotoUrls((prev) => {
+          const next = new Map(prev);
+          const url = map.get(id);
+          if (url) next.set(id, url);
+          else next.delete(id);
+          return next;
+        });
+      })
+      .catch((err) => console.error(err));
+  }
 
   function handleRowContextMenu(e: React.MouseEvent, restaurant: Restaurant) {
     e.preventDefault();
@@ -385,6 +404,7 @@ export function ListView() {
                           key={r.id}
                           restaurant={r}
                           photoUrl={photoUrls.get(r.id)}
+                          onPhotoError={() => handlePhotoError(r.id)}
                           onClick={() => openDetail(r)}
                           onContextMenu={(e) => handleRowContextMenu(e, r)}
                         />
@@ -408,6 +428,7 @@ export function ListView() {
                     key={r.id}
                     restaurant={r}
                     photoUrl={photoUrls.get(r.id)}
+                    onPhotoError={() => handlePhotoError(r.id)}
                     onClick={() => openDetail(r)}
                     onContextMenu={(e) => handleRowContextMenu(e, r)}
                   />

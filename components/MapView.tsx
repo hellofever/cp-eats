@@ -107,6 +107,40 @@ function FitToAllOnLoad({ restaurants, skip }: { restaurants: GeoRestaurant[]; s
   return null;
 }
 
+// Vector maps (required here for AdvancedMarker/mapId) suspend their WebGL draw loop
+// while their container is visibility:hidden (see app/page.tsx's invisible/pointer-
+// events-none tab toggle) to save GPU/battery. Since the container's size never
+// actually changes when it's revealed again, there's no natural resize event to snap it
+// back out of that paused state, so it repaints gradually and reads as a grey flash even
+// though the map instance and its camera position were never lost. Forcing a resize
+// event plus explicitly restoring the last-known camera the moment the view becomes
+// active again short-circuits that instead of waiting on Maps' own slow recovery.
+function RestoreCameraOnShow({ active }: { active: boolean }) {
+  const map = useMap();
+  const camera = useRef<{ center: google.maps.LatLngLiteral; zoom: number } | null>(null);
+  const wasActive = useRef(active);
+
+  useEffect(() => {
+    if (!map) return;
+    const listener = map.addListener("idle", () => {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      if (center && zoom !== undefined) camera.current = { center: center.toJSON(), zoom };
+    });
+    return () => listener.remove();
+  }, [map]);
+
+  useEffect(() => {
+    if (map && active && !wasActive.current) {
+      google.maps.event.trigger(map, "resize");
+      if (camera.current) map.moveCamera(camera.current);
+    }
+    wasActive.current = active;
+  }, [map, active]);
+
+  return null;
+}
+
 // Restaurants without a resolved location never reach this component or FitToFilter --
 // see the `geoTagged` filter in MapView, which narrows to this type so lat/lng can stay
 // non-null here without runtime assertions.
@@ -254,14 +288,21 @@ function getBoundsZoom(bounds: google.maps.LatLngBounds, mapPx: { width: number;
 }
 
 // Same padding/maxZoom shape map.fitBounds() itself takes, but animates there via
-// animateCameraTo instead of snapping instantly. `minZoom` is opt-in (unlike
-// map.fitBounds(), which has no lower bound) -- callers whose bounds could span an
-// unreasonably wide area (a stray bad coordinate, or just a very spread-out pin set)
-// pass one to stop the camera from zooming out past a sensible floor.
+// animateCameraTo instead of snapping instantly (pass `instant` to snap via moveCamera
+// instead -- e.g. ResetViewButton, where a pan reads as sluggish for what's meant to be
+// an immediate "snap back" action). `minZoom` is opt-in (unlike map.fitBounds(), which
+// has no lower bound) -- callers whose bounds could span an unreasonably wide area (a
+// stray bad coordinate, or just a very spread-out pin set) pass one to stop the camera
+// from zooming out past a sensible floor.
 function animateFitBounds(
   map: google.maps.Map,
   bounds: google.maps.LatLngBounds,
-  { padding = 64, maxZoom = FIT_MAX_ZOOM, minZoom }: { padding?: number; maxZoom?: number; minZoom?: number } = {}
+  {
+    padding = 64,
+    maxZoom = FIT_MAX_ZOOM,
+    minZoom,
+    instant = false,
+  }: { padding?: number; maxZoom?: number; minZoom?: number; instant?: boolean } = {}
 ) {
   const div = map.getDiv();
   const width = div.clientWidth - padding * 2;
@@ -273,7 +314,9 @@ function animateFitBounds(
   const center = bounds.getCenter();
   let zoom = Math.min(getBoundsZoom(bounds, { width, height }), maxZoom);
   if (minZoom != null) zoom = Math.max(zoom, minZoom);
-  animateCameraTo(map, { lat: center.lat(), lng: center.lng(), zoom });
+  const target = { lat: center.lat(), lng: center.lng(), zoom };
+  if (instant) map.moveCamera({ center: target, zoom: target.zoom });
+  else animateCameraTo(map, target);
 }
 
 // Centers the map on the browser's geolocation result. Kept as its own component (not
@@ -329,11 +372,11 @@ function ResetViewButton({
     if (restaurants.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       restaurants.forEach((r) => bounds.extend({ lat: r.lat, lng: r.lng }));
-      animateFitBounds(map, bounds, { minZoom: RESET_MIN_ZOOM });
+      animateFitBounds(map, bounds, { minZoom: RESET_MIN_ZOOM, instant: true, padding: 32 });
       return;
     }
     if (destination?.lat != null && destination?.lng != null) {
-      animateCameraTo(map, { lat: destination.lat, lng: destination.lng, zoom: DESTINATION_ZOOM });
+      map.moveCamera({ center: { lat: destination.lat, lng: destination.lng }, zoom: DESTINATION_ZOOM });
     }
   }
 
@@ -358,11 +401,13 @@ function UserLocationMarker({ position }: { position: { lat: number; lng: number
 }
 
 export function MapView({
+  isActive,
   focusPlaceId,
   typeIds = [],
   tagIds = [],
   areaIds = [],
 }: {
+  isActive: boolean;
   focusPlaceId?: string | null;
   typeIds?: string[];
   tagIds?: string[];
@@ -450,6 +495,7 @@ export function MapView({
             cameraControl={false}
             onClick={() => setSelectedId(null)}
           >
+            <RestoreCameraOnShow active={isActive} />
             <FitToFilter active={filtersActive} restaurants={geoTagged} />
             <FitToAllOnLoad restaurants={geoTagged} skip={filtersActive || Boolean(focusPlaceId)} />
             {activeDestination && <RecenterOnDestinationChange destination={activeDestination} />}

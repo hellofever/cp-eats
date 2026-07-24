@@ -5,9 +5,45 @@ export const MAX_RESTAURANT_PHOTOS = 10;
 
 const BUCKET = "restaurant-photos";
 const SIGNED_URL_TTL_SECONDS = 3600;
+// Refetch a bit before the signed URL actually expires, so a request in flight when the
+// clock ticks over never gets handed an already-dead URL.
+const REFRESH_BUFFER_SECONDS = 300;
 
+// Module-scoped, keyed by storage_path (stable across restaurant/session), so every
+// caller (ListView's grid, RestaurantDetailView's gallery, PhotoUploader) shares one
+// signed URL per photo instead of each minting its own. Reusing the exact same URL
+// string is what lets the browser's own HTTP cache actually hit -- a fresh token every
+// call means a new cache key every call, which is what made images look "uncached."
+const urlCache = new Map<string, { url: string; expiresAt: number }>();
+
+function getCachedUrl(path: string): string | undefined {
+  const hit = urlCache.get(path);
+  return hit && hit.expiresAt > Date.now() ? hit.url : undefined;
+}
+
+function setCachedUrl(path: string, url: string) {
+  urlCache.set(path, { url, expiresAt: Date.now() + (SIGNED_URL_TTL_SECONDS - REFRESH_BUFFER_SECONDS) * 1000 });
+}
+
+export function invalidatePhotoUrlCache(path: string) {
+  urlCache.delete(path);
+}
+
+async function signPaths(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+  const { data: signed, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+  if (error) throw error;
+  for (const s of signed) {
+    if (s.signedUrl && !s.error) setCachedUrl(s.path ?? "", s.signedUrl);
+  }
+}
+
+// `force` bypasses the cache for the requested paths -- used to self-heal a photo whose
+// cached URL failed to actually load (see FadeImage's onError), without discarding every
+// other cached URL along with it.
 export async function fetchRestaurantPhotos(
-  restaurantId: string
+  restaurantId: string,
+  opts?: { force?: boolean }
 ): Promise<(RestaurantPhoto & { url: string })[]> {
   const { data, error } = await supabase
     .from("restaurant_photos")
@@ -17,15 +53,15 @@ export async function fetchRestaurantPhotos(
   if (error) throw error;
 
   const photos = data as RestaurantPhoto[];
-  return Promise.all(
-    photos.map(async (photo) => {
-      const { data: signed, error: signError } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(photo.storage_path, SIGNED_URL_TTL_SECONDS);
-      if (signError) throw signError;
-      return { ...photo, url: signed.signedUrl };
-    })
-  );
+  const toSign = opts?.force
+    ? photos.map((p) => p.storage_path)
+    : photos.filter((p) => !getCachedUrl(p.storage_path)).map((p) => p.storage_path);
+  await signPaths(toSign);
+
+  return photos.flatMap((photo) => {
+    const url = getCachedUrl(photo.storage_path);
+    return url ? [{ ...photo, url }] : [];
+  });
 }
 
 // Uploads to Storage only -- doesn't touch restaurant_photos. `folder` is the
@@ -63,12 +99,16 @@ export async function linkPendingPhotos(restaurantId: string, storagePaths: stri
 export async function deletePhotoObject(storagePath: string): Promise<void> {
   const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
   if (error) throw error;
+  invalidatePhotoUrlCache(storagePath);
 }
 
 // Batch version of fetchRestaurantPhotos for grids that just need a thumbnail per
 // restaurant (List view's Card display) -- one query for the earliest photo row per
 // restaurant plus one signed-URL batch call, instead of N round trips.
-export async function fetchFirstPhotoUrls(restaurantIds: string[]): Promise<Map<string, string>> {
+export async function fetchFirstPhotoUrls(
+  restaurantIds: string[],
+  opts?: { force?: boolean }
+): Promise<Map<string, string>> {
   const result = new Map<string, string>();
   if (restaurantIds.length === 0) return result;
 
@@ -88,14 +128,11 @@ export async function fetchFirstPhotoUrls(restaurantIds: string[]): Promise<Map<
   if (firstPathByRestaurant.size === 0) return result;
 
   const paths = [...firstPathByRestaurant.values()];
-  const { data: signed, error: signError } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
-  if (signError) throw signError;
+  const toSign = opts?.force ? paths : paths.filter((p) => !getCachedUrl(p));
+  await signPaths(toSign);
 
-  const urlByPath = new Map(signed.map((s) => [s.path, s.signedUrl]));
   for (const [restaurantId, path] of firstPathByRestaurant) {
-    const url = urlByPath.get(path);
+    const url = getCachedUrl(path);
     if (url) result.set(restaurantId, url);
   }
   return result;

@@ -190,6 +190,11 @@ export function RestaurantDetailView({
               src={photo.url}
               className="h-28 w-28 shrink-0 rounded-lg"
               showSkeleton={false}
+              onError={() => {
+                fetchRestaurantPhotos(restaurant.id, { force: true })
+                  .then(setPhotos)
+                  .catch(() => {});
+              }}
             />
           ))
         ) : (

@@ -47,6 +47,7 @@ export default function HomePage() {
       {mountedViews.has("map") && (
         <div aria-hidden={view !== "map"} className={layerClassName("map", "flex flex-col")}>
           <MapView
+            isActive={view === "map"}
             focusPlaceId={focusPlaceId}
             typeIds={mapTypeIds}
             tagIds={mapTagIds}
